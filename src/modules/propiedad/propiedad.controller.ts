@@ -31,8 +31,9 @@ export class PropiedadController {
   findAll = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { tenantId } = req;
-      const propiedades = await this.propiedadService.findAll(tenantId!);
-      res.json(propiedades);
+      const { cursor, limit } = req.query;
+      const result = await this.propiedadService.findAll(tenantId!, cursor as string, limit ? parseInt(limit as string) : undefined);
+      res.json(result);
     } catch (error) {
       next(error);
     }

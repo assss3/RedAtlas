@@ -2,6 +2,7 @@ import { Propiedad } from './propiedad.entity';
 import { PropiedadRepository } from './propiedad.repository';
 import { ValidationError, NotFoundError } from '../../core/errors';
 import { PropiedadStatus } from './propiedad.interfaces';
+import { CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
 
 export class PropiedadService {
   constructor(private propiedadRepository: PropiedadRepository) {}
@@ -18,8 +19,8 @@ export class PropiedadService {
     return propiedad;
   }
 
-  async findAll(tenantId: string): Promise<Propiedad[]> {
-    return await this.propiedadRepository.findAll(tenantId);
+  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Propiedad>> {
+    return await this.propiedadRepository.findAll(tenantId, cursor, limit);
   }
 
   async update(id: string, data: Partial<Propiedad>, tenantId: string): Promise<Propiedad> {
@@ -59,5 +60,20 @@ export class PropiedadService {
 
   async findByLocation(pais: string, ciudad: string, tenantId: string): Promise<Propiedad[]> {
     return await this.propiedadRepository.findByLocation(pais, ciudad, tenantId);
+  }
+
+  async searchWithFilters(filters: {
+    tenantId: string;
+    cursor?: string;
+    limit?: number;
+    status?: string;
+    tipo?: string;
+    pais?: string;
+    ciudad?: string;
+    minSuperficie?: number;
+    maxSuperficie?: number;
+    ambientes?: number;
+  }): Promise<CursorPaginationResult<Propiedad>> {
+    return await this.propiedadRepository.searchWithFilters(filters);
   }
 }

@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { Usuario } from './usuario.entity';
 import { UsuarioRepository } from './usuario.repository';
 import { ValidationError, NotFoundError } from '../../core/errors';
+import { CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
 
 export class UsuarioService {
   constructor(private usuarioRepository: UsuarioRepository) {}
@@ -26,9 +27,8 @@ export class UsuarioService {
     }
     return usuario;
   }
-
-  async findAll(tenantId: string): Promise<Usuario[]> {
-    return await this.usuarioRepository.findAll(tenantId);
+  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Usuario>> {
+    return await this.usuarioRepository.findAll(tenantId, cursor, limit);
   }
 
   async update(id: string, data: Partial<Usuario>, tenantId: string): Promise<Usuario> {

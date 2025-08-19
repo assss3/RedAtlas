@@ -1,7 +1,8 @@
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { BaseRepository } from '../../core/interfaces';
+import { CursorPaginationHelper, CursorPaginationResult } from '../utils/cursor-pagination.helper';
 
-export abstract class BaseRepositoryImpl<T extends { id: string; tenantId: string; deletedAt?: Date }> implements BaseRepository<T> {
+export abstract class BaseRepositoryImpl<T extends { id: string; tenantId: string; deletedAt?: Date; createdAt: Date }> implements BaseRepository<T> {
   constructor(protected repository: Repository<T>) {}
 
   async create(entity: Partial<T>): Promise<T> {
@@ -15,9 +16,26 @@ export abstract class BaseRepositoryImpl<T extends { id: string; tenantId: strin
     return await this.repository.findOne({ where });
   }
 
-  async findAll(tenantId: string): Promise<T[]> {
-    const where: FindOptionsWhere<T> = { tenantId } as any;
-    return await this.repository.find({ where });
+  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<T>> {
+    const validLimit = CursorPaginationHelper.validateLimit(limit);
+    const tableName = this.repository.metadata.tableName;
+    
+    const queryBuilder = this.repository
+      .createQueryBuilder(tableName)
+      .where(`${tableName}.tenantId = :tenantId`, { tenantId });
+
+    if (cursor) {
+      const cursorData = CursorPaginationHelper.decodeCursor(cursor);
+      CursorPaginationHelper.applyCursorCondition(queryBuilder, cursorData, tableName);
+    }
+
+    queryBuilder
+      .orderBy(`${tableName}.createdAt`, 'DESC')
+      .addOrderBy(`${tableName}.id`, 'DESC')
+      .limit(validLimit + 1);
+
+    const data = await queryBuilder.getMany();
+    return CursorPaginationHelper.buildResult(data, validLimit);
   }
 
   async update(id: string, entity: Partial<T>, tenantId: string): Promise<T | null> {

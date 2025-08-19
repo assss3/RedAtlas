@@ -2,7 +2,8 @@ import { Anuncio } from './anuncio.entity';
 import { AnuncioRepository } from './anuncio.repository';
 import { ValidationError, NotFoundError } from '../../core/errors';
 import { AnuncioStatus } from './anuncio.interfaces';
-import { AnuncioSearchFilters, SearchResult } from '../../shared/interfaces/search-filters';
+import { AnuncioSearchFilters } from '../../shared/interfaces/search-filters';
+import { CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
 
 export class AnuncioService {
   constructor(private anuncioRepository: AnuncioRepository) {}
@@ -19,8 +20,8 @@ export class AnuncioService {
     return anuncio;
   }
 
-  async findAll(tenantId: string): Promise<Anuncio[]> {
-    return await this.anuncioRepository.findAll(tenantId);
+  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Anuncio>> {
+    return await this.anuncioRepository.findAll(tenantId, cursor, limit);
   }
 
   async findByPropertyId(propertyId: string, tenantId: string): Promise<Anuncio[]> {
@@ -62,7 +63,7 @@ export class AnuncioService {
     return await this.anuncioRepository.findByTipo(tipo, tenantId);
   }
 
-  async searchWithFilters(filters: AnuncioSearchFilters): Promise<SearchResult<Anuncio>> {
+  async searchWithFilters(filters: AnuncioSearchFilters & { cursor?: string }): Promise<CursorPaginationResult<Anuncio>> {
     return await this.anuncioRepository.searchWithFilters(filters);
   }
 }

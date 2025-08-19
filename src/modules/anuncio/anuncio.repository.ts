@@ -3,6 +3,7 @@ import { Anuncio } from './anuncio.entity';
 import { BaseRepositoryImpl } from '../../shared/db/base.repository';
 import { AnuncioStatus } from './anuncio.interfaces';
 import { AnuncioSearchFilters, SearchResult } from '../../shared/interfaces/search-filters';
+import { CursorPaginationHelper, CursorData, CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
 
 export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
   constructor() {
@@ -40,14 +41,20 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
     );
   }
 
-  async searchWithFilters(filters: AnuncioSearchFilters): Promise<SearchResult<Anuncio>> {
-    const { page = 1, limit = 10, tenantId, ...searchFilters } = filters;
-    const offset = (page - 1) * limit;
+  async searchWithFilters(filters: AnuncioSearchFilters & { cursor?: string }): Promise<CursorPaginationResult<Anuncio>> {
+    const { tenantId, cursor, limit: requestLimit, ...searchFilters } = filters;
+    const limit = CursorPaginationHelper.validateLimit(requestLimit);
 
     const queryBuilder = this.repository
       .createQueryBuilder('anuncio')
       .leftJoinAndSelect('anuncio.property', 'property')
-      .where('anuncio.tenantId = :tenantId', { tenantId }); // tenant_id first for index optimization
+      .where('anuncio.tenantId = :tenantId', { tenantId });
+
+    // Aplicar cursor si existe
+    if (cursor) {
+      const cursorData = CursorPaginationHelper.decodeCursor(cursor);
+      CursorPaginationHelper.applyCursorCondition(queryBuilder, cursorData, 'anuncio');
+    }
 
     // Filtros de anuncio
     if (searchFilters.status) {
@@ -89,20 +96,13 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
       queryBuilder.andWhere('property.ambientes = :ambientes', { ambientes: searchFilters.ambientes });
     }
 
-    // Ordenamiento y paginación
+    // Ordenamiento y paginación por cursor
     queryBuilder
       .orderBy('anuncio.createdAt', 'DESC')
-      .skip(offset)
-      .take(limit);
+      .addOrderBy('anuncio.id', 'DESC')
+      .limit(limit + 1); // +1 para detectar si hay más resultados
 
-    const [data, total] = await queryBuilder.getManyAndCount();
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
-    };
+    const data = await queryBuilder.getMany();
+    return CursorPaginationHelper.buildResult(data, limit);
   }
 }

@@ -6,6 +6,7 @@ import { AnuncioService } from '../anuncio/anuncio.service';
 import { PropiedadService } from '../propiedad/propiedad.service';
 import { AnuncioStatus } from '../anuncio/anuncio.interfaces';
 import { PropiedadStatus } from '../propiedad/propiedad.interfaces';
+import { CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
 
 export class TransaccionService {
   constructor(
@@ -52,8 +53,8 @@ export class TransaccionService {
     return transaccion;
   }
 
-  async findAll(tenantId: string): Promise<Transaccion[]> {
-    return await this.transaccionRepository.findAll(tenantId);
+  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Transaccion>> {
+    return await this.transaccionRepository.findAll(tenantId, cursor, limit);
   }
 
   async findByUserId(userId: string, tenantId: string): Promise<Transaccion[]> {
@@ -148,5 +149,18 @@ export class TransaccionService {
 
   async findPendingByAnuncioId(anuncioId: string, tenantId: string): Promise<Transaccion[]> {
     return await this.transaccionRepository.findPendingByAnuncioId(anuncioId, tenantId);
+  }
+
+  async searchWithFilters(filters: {
+    tenantId: string;
+    cursor?: string;
+    limit?: number;
+    status?: string;
+    userId?: string;
+    anuncioId?: string;
+    minAmount?: number;
+    maxAmount?: number;
+  }): Promise<CursorPaginationResult<Transaccion>> {
+    return await this.transaccionRepository.searchWithFilters(filters);
   }
 }

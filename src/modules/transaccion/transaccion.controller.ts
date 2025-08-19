@@ -39,8 +39,9 @@ export class TransaccionController {
   findAll = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { tenantId } = req;
-      const transacciones = await this.transaccionService.findAll(tenantId!);
-      res.json(transacciones);
+      const { cursor, limit } = req.query;
+      const result = await this.transaccionService.findAll(tenantId!, cursor as string, limit ? parseInt(limit as string) : undefined);
+      res.json(result);
     } catch (error) {
       next(error);
     }
