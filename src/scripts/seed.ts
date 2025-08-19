@@ -7,7 +7,10 @@ import { Tenant } from '../modules/tenant/tenant.entity';
 import { Propiedad } from '../modules/propiedad/propiedad.entity';
 import { Anuncio } from '../modules/anuncio/anuncio.entity';
 import { Transaccion } from '../modules/transaccion/transaccion.entity';
-import { UserRole, TransactionStatus, PropertyType, OperationType, AnuncioStatus, PropiedadStatus } from '../core/interfaces';
+import { UserRole } from '../modules/usuario/usuario.interfaces';
+import { TransactionStatus } from '../modules/transaccion/transaccion.interfaces';
+import { PropertyType, PropiedadStatus } from '../modules/propiedad/propiedad.interfaces';
+import { OperationType, AnuncioStatus } from '../modules/anuncio/anuncio.interfaces';
 import bcrypt from 'bcryptjs';
 
 async function seed() {
@@ -99,9 +102,14 @@ async function seed() {
     console.log(`📋 Tenant 2: ${tenant2.id} - ${tenant2.name}`);
     console.log('👤 Admin: 550e8400-e29b-41d4-a716-446655440001 (Tenant 1)');
     console.log('👤 User: 550e8400-e29b-41d4-a716-446655440003 (Tenant 1)');
-    console.log(`🏠 Propiedad: ${propiedad.id} - ${propiedad.title}`);
-    console.log(`📢 Anuncio: ${anuncio.id} - Propiedad ${propiedad.title}`);
+    console.log(`🏠 Propiedad: ${propiedad.id} - ${propiedad.title} (${propiedad.status})`);
+    console.log(`📢 Anuncio: ${anuncio.id} - ${anuncio.status}`);
     console.log(`💰 Transacción: ${transaccion.id} - $${transaccion.amount} (${transaccion.status})`);
+    console.log('');
+    console.log('🔄 Business Logic Applied:');
+    console.log('- Transaction created with PENDIENTE status');
+    console.log('- Property status changed to NO_DISPONIBLE');
+    console.log('- All property listings would be RESERVADO (if multiple existed)');
 
   } catch (error) {
     console.error('❌ Seed failed:', error);

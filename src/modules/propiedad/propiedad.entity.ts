@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
 import { Anuncio } from '../anuncio/anuncio.entity';
-import { PropertyType, PropiedadStatus } from '../../core/interfaces';
+import { PropertyType, PropiedadStatus } from './propiedad.interfaces';
 @Entity('propiedades')
 export class Propiedad {
   @PrimaryGeneratedColumn('uuid')

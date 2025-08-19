@@ -1,12 +1,47 @@
 import { Transaccion } from './transaccion.entity';
 import { TransaccionRepository } from './transaccion.repository';
 import { ValidationError, NotFoundError } from '../../core/errors';
+import { TransactionStatus } from './transaccion.interfaces';
+import { AnuncioService } from '../anuncio/anuncio.service';
+import { PropiedadService } from '../propiedad/propiedad.service';
+import { AnuncioStatus } from '../anuncio/anuncio.interfaces';
+import { PropiedadStatus } from '../propiedad/propiedad.interfaces';
 
 export class TransaccionService {
-  constructor(private transaccionRepository: TransaccionRepository) {}
+  constructor(
+    private transaccionRepository: TransaccionRepository,
+    private anuncioService: AnuncioService,
+    private propiedadService: PropiedadService
+  ) {}
 
   async create(data: Partial<Transaccion>): Promise<Transaccion> {
-    return await this.transaccionRepository.create(data);
+    // Crear transacción con estado pendiente
+    const transaccionData = {
+      ...data,
+      status: TransactionStatus.PENDIENTE
+    };
+
+    
+    const transaccion = await this.transaccionRepository.create(transaccionData);
+    
+    // Obtener el anuncio para acceder a la propiedad
+    const anuncio = await this.anuncioService.findById(transaccion.anuncioId, transaccion.tenantId);
+    
+    // Cambiar todos los anuncios activos de la propiedad a reservado
+    await this.anuncioService.updateStatusByPropertyId(
+      anuncio.propertyId, 
+      AnuncioStatus.RESERVADO, 
+      transaccion.tenantId
+    );
+    
+    // Cambiar propiedad a no disponible
+    await this.propiedadService.updateStatus(
+      anuncio.propertyId, 
+      PropiedadStatus.NO_DISPONIBLE, 
+      transaccion.tenantId
+    );
+    
+    return transaccion;
   }
 
   async findById(id: string, tenantId: string): Promise<Transaccion> {
@@ -50,5 +85,60 @@ export class TransaccionService {
       throw new NotFoundError('Transacción');
     }
     return transaccion;
+  }
+
+  async cancel(id: string, tenantId: string): Promise<Transaccion> {
+    const transaccion = await this.findById(id, tenantId);
+    
+    // Actualizar estado de transacción
+    const updatedTransaccion = await this.transaccionRepository.update(
+      id, 
+      { status: TransactionStatus.CANCELADA }, 
+      tenantId
+    );
+    
+    // Obtener el anuncio para acceder a la propiedad
+    const anuncio = await this.anuncioService.findById(transaccion.anuncioId, tenantId);
+    
+    // Cambiar todos los anuncios de la propiedad a activo
+    await this.anuncioService.updateStatusByPropertyId(
+      anuncio.propertyId, 
+      AnuncioStatus.ACTIVO, 
+      tenantId
+    );
+    
+    // Cambiar propiedad a disponible
+    await this.propiedadService.updateStatus(
+      anuncio.propertyId, 
+      PropiedadStatus.DISPONIBLE, 
+      tenantId
+    );
+    
+    return updatedTransaccion!;
+  }
+
+  async complete(id: string, tenantId: string): Promise<Transaccion> {
+    const transaccion = await this.findById(id, tenantId);
+    
+    // Actualizar estado de transacción
+    const updatedTransaccion = await this.transaccionRepository.update(
+      id, 
+      { status: TransactionStatus.COMPLETADA }, 
+      tenantId
+    );
+    
+    // Obtener el anuncio para acceder a la propiedad
+    const anuncio = await this.anuncioService.findById(transaccion.anuncioId, tenantId);
+    
+    // Cambiar todos los anuncios de la propiedad a inactivo
+    await this.anuncioService.updateStatusByPropertyId(
+      anuncio.propertyId, 
+      AnuncioStatus.INACTIVO, 
+      tenantId
+    );
+    
+    // La propiedad permanece no disponible
+    
+    return updatedTransaccion!;
   }
 }

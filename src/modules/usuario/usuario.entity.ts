@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
-import { UserRole } from '../../core/interfaces';
+import { UserRole } from './usuario.interfaces';
 import { Transaccion } from '../transaccion/transaccion.entity';
 
 @Entity('usuarios')

@@ -1,12 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { TransaccionService } from './transaccion.service';
 import { AuthenticatedRequest } from '../../core/interfaces';
+import { UserRole } from '../usuario/usuario.interfaces';
+import { ValidationError } from '../../core/errors';
 
 export class TransaccionController {
   constructor(private transaccionService: TransaccionService) {}
 
   create = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
+      // Validar que solo USER puede crear transacciones
+      if (req.userRole !== UserRole.USER) {
+        throw new ValidationError('Solo usuarios con rol USER pueden crear transacciones');
+      }
+      
       const { tenantId, userId } = req;
       const transaccion = await this.transaccionService.create({
         ...req.body,
@@ -83,6 +90,36 @@ export class TransaccionController {
     try {
       const { tenantId } = req;
       const transaccion = await this.transaccionService.restore(req.params.id, tenantId!);
+      res.json(transaccion);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  cancel = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      // Validar que solo ADMIN puede cancelar transacciones
+      if (req.userRole !== UserRole.ADMIN) {
+        throw new ValidationError('Solo usuarios con rol ADMIN pueden cancelar transacciones');
+      }
+      
+      const { tenantId } = req;
+      const transaccion = await this.transaccionService.cancel(req.params.id, tenantId!);
+      res.json(transaccion);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  complete = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      // Validar que solo ADMIN puede completar transacciones
+      if (req.userRole !== UserRole.ADMIN) {
+        throw new ValidationError('Solo usuarios con rol ADMIN pueden completar transacciones');
+      }
+      
+      const { tenantId } = req;
+      const transaccion = await this.transaccionService.complete(req.params.id, tenantId!);
       res.json(transaccion);
     } catch (error) {
       next(error);

@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Propiedad } from '../propiedad/propiedad.entity';
 import { Transaccion } from '../transaccion/transaccion.entity';
-import { OperationType, AnuncioStatus } from '../../core/interfaces';
+import { OperationType, AnuncioStatus } from './anuncio.interfaces';
 
 @Entity('anuncios')
 export class Anuncio {

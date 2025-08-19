@@ -1,6 +1,7 @@
 import { Anuncio } from './anuncio.entity';
 import { AnuncioRepository } from './anuncio.repository';
 import { ValidationError, NotFoundError } from '../../core/errors';
+import { AnuncioStatus } from './anuncio.interfaces';
 
 export class AnuncioService {
   constructor(private anuncioRepository: AnuncioRepository) {}
@@ -46,5 +47,9 @@ export class AnuncioService {
       throw new NotFoundError('Anuncio');
     }
     return anuncio;
+  }
+
+  async updateStatusByPropertyId(propertyId: string, status: AnuncioStatus, tenantId: string): Promise<void> {
+    await this.anuncioRepository.updateStatusByPropertyId(propertyId, status, tenantId);
   }
 }

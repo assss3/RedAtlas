@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { TransactionStatus } from '../../core/interfaces';
+import { TransactionStatus } from './transaccion.interfaces';
 import { Anuncio } from '../anuncio/anuncio.entity';
 import { Usuario } from '../usuario/usuario.entity';
 

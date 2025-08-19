@@ -78,8 +78,8 @@ CREATE EXTENSION postgis;
 - `DELETE /:id` - Soft delete
 - `PATCH /:id/restore` - Restaurar
 
-### Transacciones (`/api/transactions`) - Solo USER
-- `POST /` - Crear transacción
+### Transacciones (`/api/transactions`)
+- `POST /` - Crear transacción (solo USER, requiere: anuncioId, amount)
 - `GET /` - Listar transacciones
 - `GET /:id` - Obtener transacción
 - `GET /user/:userId` - Por usuario
@@ -87,6 +87,8 @@ CREATE EXTENSION postgis;
 - `PUT /:id` - Actualizar transacción
 - `DELETE /:id` - Soft delete
 - `PATCH /:id/restore` - Restaurar
+- `PATCH /:id/cancel` - Cancelar transacción (solo ADMIN)
+- `PATCH /:id/complete` - Completar transacción (solo ADMIN)
 
 ## 🔐 Autenticación
 
@@ -135,6 +137,23 @@ El campo `location` en Propiedad está configurado para PostGIS:
 - PENDIENTE
 - COMPLETADA
 - CANCELADA
+
+## 📋 Reglas de Negocio - Transacciones
+
+### Creación (Solo USER)
+- La transacción inicia con estado PENDIENTE
+- Todos los anuncios activos de la propiedad pasan a RESERVADO
+- La propiedad pasa a NO_DISPONIBLE
+
+### Cancelación (Solo ADMIN)
+- La transacción pasa a CANCELADA
+- Todos los anuncios de la propiedad vuelven a ACTIVO
+- La propiedad vuelve a DISPONIBLE
+
+### Finalización (Solo ADMIN)
+- La transacción pasa a COMPLETADA
+- Todos los anuncios de la propiedad pasan a INACTIVO
+- La propiedad permanece NO_DISPONIBLE
 
 ## 🔮 Mejoras Futuras
 

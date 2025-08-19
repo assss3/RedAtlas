@@ -1,6 +1,7 @@
 import { Propiedad } from './propiedad.entity';
 import { PropiedadRepository } from './propiedad.repository';
 import { ValidationError, NotFoundError } from '../../core/errors';
+import { PropiedadStatus } from './propiedad.interfaces';
 
 export class PropiedadService {
   constructor(private propiedadRepository: PropiedadRepository) {}
@@ -42,5 +43,9 @@ export class PropiedadService {
       throw new NotFoundError('Propiedad');
     }
     return propiedad;
+  }
+
+  async updateStatus(id: string, status: PropiedadStatus, tenantId: string): Promise<void> {
+    await this.propiedadRepository.update(id, { status }, tenantId);
   }
 }

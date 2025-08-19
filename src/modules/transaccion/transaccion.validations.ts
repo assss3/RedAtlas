@@ -1,4 +1,5 @@
 import { body, param } from 'express-validator';
+import { TransactionStatus } from './transaccion.interfaces';
 
 export const createTransaccionValidation = [
   body('anuncioId')
@@ -10,11 +11,7 @@ export const createTransaccionValidation = [
     .isNumeric()
     .withMessage('Amount must be a number')
     .isFloat({ min: 0 })
-    .withMessage('Amount must be greater than 0'),
-  body('status')
-    .optional()
-    .isIn(['pending', 'completed', 'cancelled'])
-    .withMessage('Status must be pending, completed, or cancelled')
+    .withMessage('Amount must be greater than 0')
 ];
 
 export const updateTransaccionValidation = [
@@ -26,14 +23,22 @@ export const updateTransaccionValidation = [
     .isNumeric()
     .withMessage('Amount must be a number')
     .isFloat({ min: 0 })
-    .withMessage('Amount must be greater than 0'),
-  body('status')
-    .optional()
-    .isIn(['pending', 'completed', 'cancelled'])
-    .withMessage('Status must be pending, completed, or cancelled')
+    .withMessage('Amount must be greater than 0')
 ];
 
 export const getTransaccionValidation = [
+  param('id')
+    .isUUID()
+    .withMessage('Transaction ID must be a valid UUID')
+];
+
+export const cancelTransaccionValidation = [
+  param('id')
+    .isUUID()
+    .withMessage('Transaction ID must be a valid UUID')
+];
+
+export const completeTransaccionValidation = [
   param('id')
     .isUUID()
     .withMessage('Transaction ID must be a valid UUID')
