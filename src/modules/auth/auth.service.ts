@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { AppDataSource } from '../../config/database';
 import { Usuario } from '../usuario/usuario.entity';
 import { RefreshToken } from './refresh-token.entity';
-import { UserRole } from '../../core/interfaces';
+import { UserRole } from '../usuario/usuario.interfaces';
 
 export class AuthService {
   private userRepo = AppDataSource.getRepository(Usuario);

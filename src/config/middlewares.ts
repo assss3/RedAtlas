@@ -1,39 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../core/errors';
-import { AuthenticatedRequest, UserRole } from '../core/interfaces';
+import { AuthenticatedRequest } from '../core/interfaces';
+import { UserRole } from '../modules/usuario/usuario.interfaces';
 
-export const tenantMiddleware = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const tenantId = req.headers['x-tenant-id'] as string;
-  if (!tenantId) {
-    return res.status(400).json({
-      type: 'https://example.com/errors/missing-tenant',
-      title: 'Missing tenant ID',
-      status: 400,
-      detail: 'x-tenant-id header is required',
-    });
-  }
-  req.tenantId = tenantId;
-  next();
-};
-
-export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  // Mock auth - en producción usar JWT
-  const userId = req.headers['x-user-id'] as string;
-  const userRole = req.headers['x-user-role'] as UserRole;
-  
-  if (!userId || !userRole) {
-    return res.status(401).json({
-      type: 'https://example.com/errors/unauthorized',
-      title: 'Unauthorized',
-      status: 401,
-      detail: 'Authentication required',
-    });
-  }
-  
-  req.userId = userId;
-  req.userRole = userRole;
-  next();
-};
 
 export const requireRole = (roles: UserRole[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
