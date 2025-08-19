@@ -13,6 +13,7 @@ const anuncioService = new AnuncioService(anuncioRepository);
 const anuncioController = new AnuncioController(anuncioService);
 
 router.post('/', requireRole([UserRole.ADMIN]), validate(createAnuncioValidation), anuncioController.create);
+router.get('/search', anuncioController.search);
 router.get('/', anuncioController.findAll);
 router.get('/property/:propertyId', anuncioController.findByProperty);
 router.get('/:id', validate(getAnuncioValidation), anuncioController.findById);

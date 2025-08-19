@@ -2,6 +2,7 @@ import { Anuncio } from './anuncio.entity';
 import { AnuncioRepository } from './anuncio.repository';
 import { ValidationError, NotFoundError } from '../../core/errors';
 import { AnuncioStatus } from './anuncio.interfaces';
+import { AnuncioSearchFilters, SearchResult } from '../../shared/interfaces/search-filters';
 
 export class AnuncioService {
   constructor(private anuncioRepository: AnuncioRepository) {}
@@ -59,5 +60,9 @@ export class AnuncioService {
 
   async findByTipo(tipo: string, tenantId: string): Promise<Anuncio[]> {
     return await this.anuncioRepository.findByTipo(tipo, tenantId);
+  }
+
+  async searchWithFilters(filters: AnuncioSearchFilters): Promise<SearchResult<Anuncio>> {
+    return await this.anuncioRepository.searchWithFilters(filters);
   }
 }
