@@ -13,9 +13,33 @@ export enum UserRole {
 }
 
 export enum TransactionStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  PENDIENTE = 'pendiente',
+  COMPLETADA = 'completada',
+  CANCELADA = 'cancelada',
+}
+
+export enum PropiedadStatus {
+  DISPONIBLE = 'disponible',
+  NO_DISPONIBLE = 'no_disponible',
+}
+
+export enum PropertyType {
+  DEPARTAMENTO = 'departamento',
+  CASA = 'casa',
+  TERRENO = 'terreno',
+  LOCAL = 'local',
+  OFICINA = 'oficina',
+}
+
+export enum OperationType {
+  VENTA = 'venta',
+  ALQUILER = 'alquiler',
+}
+
+export enum AnuncioStatus {
+  ACTIVO = 'activo',
+  INACTIVO = 'inactivo',
+  RESERVADO = 'reservado',
 }
 
 export interface BaseRepository<T> {

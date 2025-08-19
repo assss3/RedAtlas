@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
 import { Anuncio } from '../anuncio/anuncio.entity';
+import { PropertyType, PropiedadStatus } from '../../core/interfaces';
 @Entity('propiedades')
 export class Propiedad {
   @PrimaryGeneratedColumn('uuid')
@@ -11,8 +12,26 @@ export class Propiedad {
   @Column()
   title!: string;
 
+  @Column({ type: 'enum', enum: PropertyType })
+  tipo!: PropertyType;
+
+  @Column({ nullable: true })
+  ambientes!: number;
+
   @Column('decimal', { precision: 10, scale: 2 })
-  price!: number;
+  superficie!: number;
+
+  @Column()
+  pais!: string;
+
+  @Column()
+  ciudad!: string;
+
+  @Column()
+  calle!: string;
+
+  @Column()
+  altura!: string;
 
   @Column({
     type: 'geography',
@@ -32,6 +51,9 @@ export class Propiedad {
     }
   })
   location!: string;
+
+  @Column({ type: 'enum', enum: PropiedadStatus, default: PropiedadStatus.DISPONIBLE })
+  status!: PropiedadStatus;
 
   @OneToMany(() => Anuncio, anuncio => anuncio.property)
   anuncios!: Anuncio[];

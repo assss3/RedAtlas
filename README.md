@@ -62,7 +62,7 @@ CREATE EXTENSION postgis;
 - `DELETE /:id` - Eliminar usuario
 
 ### Propiedades (`/api/properties`) - Solo ADMIN
-- `POST /` - Crear propiedad
+- `POST /` - Crear propiedad (requiere: title, tipo, superficie, pais, ciudad, calle, altura, ambientes si es CASA/DEPARTAMENTO, status opcional)
 - `GET /` - Listar propiedades
 - `GET /:id` - Obtener propiedad
 - `PUT /:id` - Actualizar propiedad
@@ -70,7 +70,7 @@ CREATE EXTENSION postgis;
 - `PATCH /:id/restore` - Restaurar
 
 ### Anuncios (`/api/listings`) - Solo ADMIN
-- `POST /` - Crear anuncio
+- `POST /` - Crear anuncio (requiere: propertyId, description, tipo, price, status opcional)
 - `GET /` - Listar anuncios
 - `GET /:id` - Obtener anuncio
 - `GET /property/:propertyId` - Por propiedad
@@ -105,6 +105,40 @@ El campo `location` en Propiedad está configurado para PostGIS:
 - Tipo: `geography(Point, 4326)`
 - SRID: 4326 (WGS84)
 - Formato: `POINT(longitude latitude)`
+
+## 🏠 Tipos de Propiedad
+
+- DEPARTAMENTO
+- CASA
+- TERRENO
+- LOCAL
+- OFICINA
+
+## 📋 Tipos de Operación
+
+- VENTA
+- ALQUILER
+
+## 📊 Estados de Anuncio
+
+- ACTIVO
+- INACTIVO
+- RESERVADO
+
+## 🏠 Estados de Propiedad
+
+- DISPONIBLE
+- NO_DISPONIBLE
+
+## 💰 Estados de Transacción
+
+- PENDIENTE
+- COMPLETADA
+- CANCELADA
+
+## 🔮 Mejoras Futuras
+
+- **Integración con APIs de Geolocalización**: Usar servicios como Google Maps API o OpenStreetMap para mantener consistencia en nombres de países, ciudades y calles, y validar direcciones automáticamente.
 
 ## 🏷️ Roles
 

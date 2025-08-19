@@ -7,7 +7,7 @@ import { Tenant } from '../modules/tenant/tenant.entity';
 import { Propiedad } from '../modules/propiedad/propiedad.entity';
 import { Anuncio } from '../modules/anuncio/anuncio.entity';
 import { Transaccion } from '../modules/transaccion/transaccion.entity';
-import { UserRole, TransactionStatus } from '../core/interfaces';
+import { UserRole, TransactionStatus, PropertyType, OperationType, AnuncioStatus, PropiedadStatus } from '../core/interfaces';
 import bcrypt from 'bcryptjs';
 
 async function seed() {
@@ -54,15 +54,22 @@ async function seed() {
 
     // Crear propiedad con ubicación
     const propiedad = await AppDataSource.query(
-      `INSERT INTO propiedades (id, tenant_id, title, price, location) 
-       VALUES ($1, $2, $3, $4, ST_SetSRID(ST_GeomFromText($5), 4326)::geography) 
+      `INSERT INTO propiedades (id, tenant_id, title, tipo, ambientes, superficie, pais, ciudad, calle, altura, location, status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, ST_SetSRID(ST_GeomFromText($11), 4326)::geography, $12) 
        RETURNING *`,
       [
         '550e8400-e29b-41d4-a716-446655440100',
         tenant1.id,
         'Casa en Palermo',
-        250000.00,
-        'POINT(-58.4173 -34.5875)'
+        PropertyType.CASA,
+        3,
+        120.50,
+        'Argentina',
+        'Buenos Aires',
+        'Av. Santa Fe',
+        '1234',
+        'POINT(-58.4173 -34.5875)',
+        PropiedadStatus.DISPONIBLE
       ]
     ).then(result => result[0]);
 
@@ -71,7 +78,10 @@ async function seed() {
       id: '550e8400-e29b-41d4-a716-446655440200',
       tenantId: tenant1.id,
       propertyId: propiedad.id,
-      description: 'Hermosa casa de 3 ambientes en el corazón de Palermo. Totalmente renovada con excelente ubicación cerca del transporte público.'
+      description: 'Hermosa casa de 3 ambientes en el corazón de Palermo. Totalmente renovada con excelente ubicación cerca del transporte público.',
+      tipo: OperationType.VENTA,
+      price: 250000.00,
+      status: AnuncioStatus.ACTIVO
     });
 
     // Crear transacción
@@ -81,7 +91,7 @@ async function seed() {
       anuncioId: anuncio.id,
       userId: usuario.id,
       amount: 250000.00,
-      status: TransactionStatus.PENDING
+      status: TransactionStatus.PENDIENTE
     });
 
     console.log('✅ Seed completed successfully');

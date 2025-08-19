@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Propiedad } from '../propiedad/propiedad.entity';
 import { Transaccion } from '../transaccion/transaccion.entity';
+import { OperationType, AnuncioStatus } from '../../core/interfaces';
 
 @Entity('anuncios')
 export class Anuncio {
@@ -19,6 +20,15 @@ export class Anuncio {
 
   @Column('text')
   description!: string;
+
+  @Column({ type: 'enum', enum: OperationType })
+  tipo!: OperationType;
+
+  @Column('decimal', { precision: 10, scale: 2 })
+  price!: number;
+
+  @Column({ type: 'enum', enum: AnuncioStatus, default: AnuncioStatus.ACTIVO })
+  status!: AnuncioStatus;
 
   @OneToMany(() => Transaccion, transaccion => transaccion.anuncio)
   transacciones!: Transaccion[];
