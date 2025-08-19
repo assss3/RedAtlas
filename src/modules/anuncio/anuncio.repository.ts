@@ -10,14 +10,31 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
 
   async findByPropertyId(propertyId: string, tenantId: string): Promise<Anuncio[]> {
     return await this.repository.find({
-      where: { propertyId, tenantId },
-      relations: ['property']
+      where: { tenantId, propertyId }, // tenant_id first for index optimization
+      relations: ['property'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async findByStatus(status: AnuncioStatus, tenantId: string): Promise<Anuncio[]> {
+    return await this.repository.find({
+      where: { tenantId, status }, // tenant_id first for index optimization
+      relations: ['property'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async findByTipo(tipo: string, tenantId: string): Promise<Anuncio[]> {
+    return await this.repository.find({
+      where: { tenantId, tipo: tipo as any }, // tenant_id first for index optimization
+      relations: ['property'],
+      order: { createdAt: 'DESC' }
     });
   }
 
   async updateStatusByPropertyId(propertyId: string, status: AnuncioStatus, tenantId: string): Promise<void> {
     await this.repository.update(
-      { propertyId, tenantId },
+      { tenantId, propertyId }, // tenant_id first for index optimization
       { status }
     );
   }

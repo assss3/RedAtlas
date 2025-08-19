@@ -19,4 +19,25 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
     }
     return super.create(data);
   }
+
+  async findByStatus(status: string, tenantId: string): Promise<Propiedad[]> {
+    return await this.repository.find({
+      where: { tenantId, status: status as any }, // tenant_id first for index optimization
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async findByTipo(tipo: string, tenantId: string): Promise<Propiedad[]> {
+    return await this.repository.find({
+      where: { tenantId, tipo: tipo as any }, // tenant_id first for index optimization
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async findByLocation(pais: string, ciudad: string, tenantId: string): Promise<Propiedad[]> {
+    return await this.repository.find({
+      where: { tenantId, pais, ciudad }, // tenant_id first for index optimization
+      order: { createdAt: 'DESC' }
+    });
+  }
 }

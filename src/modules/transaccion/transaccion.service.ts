@@ -141,4 +141,12 @@ export class TransaccionService {
     
     return updatedTransaccion!;
   }
+
+  async findByStatus(status: string, tenantId: string): Promise<Transaccion[]> {
+    return await this.transaccionRepository.findByStatus(status, tenantId);
+  }
+
+  async findPendingByAnuncioId(anuncioId: string, tenantId: string): Promise<Transaccion[]> {
+    return await this.transaccionRepository.findPendingByAnuncioId(anuncioId, tenantId);
+  }
 }

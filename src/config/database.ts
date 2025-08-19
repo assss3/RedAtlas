@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { DataSource } from 'typeorm';
 import { Usuario } from '../modules/usuario/usuario.entity';
 import { Propiedad } from '../modules/propiedad/propiedad.entity';

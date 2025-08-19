@@ -52,4 +52,12 @@ export class AnuncioService {
   async updateStatusByPropertyId(propertyId: string, status: AnuncioStatus, tenantId: string): Promise<void> {
     await this.anuncioRepository.updateStatusByPropertyId(propertyId, status, tenantId);
   }
+
+  async findByStatus(status: AnuncioStatus, tenantId: string): Promise<Anuncio[]> {
+    return await this.anuncioRepository.findByStatus(status, tenantId);
+  }
+
+  async findByTipo(tipo: string, tenantId: string): Promise<Anuncio[]> {
+    return await this.anuncioRepository.findByTipo(tipo, tenantId);
+  }
 }

@@ -48,4 +48,16 @@ export class PropiedadService {
   async updateStatus(id: string, status: PropiedadStatus, tenantId: string): Promise<void> {
     await this.propiedadRepository.update(id, { status }, tenantId);
   }
+
+  async findByStatus(status: string, tenantId: string): Promise<Propiedad[]> {
+    return await this.propiedadRepository.findByStatus(status, tenantId);
+  }
+
+  async findByTipo(tipo: string, tenantId: string): Promise<Propiedad[]> {
+    return await this.propiedadRepository.findByTipo(tipo, tenantId);
+  }
+
+  async findByLocation(pais: string, ciudad: string, tenantId: string): Promise<Propiedad[]> {
+    return await this.propiedadRepository.findByLocation(pais, ciudad, tenantId);
+  }
 }
