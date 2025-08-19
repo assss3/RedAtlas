@@ -26,6 +26,14 @@ src/
 
 ## 🚀 Instalación
 
+### 1. Configurar PostgreSQL
+```bash
+# Configurar PostgreSQL con PostGIS
+chmod +x setup-db.sh
+./setup-db.sh
+```
+
+### 2. Configurar Aplicación
 ```bash
 # Instalar dependencias
 npm install
@@ -33,24 +41,70 @@ npm install
 # Configurar variables de entorno
 cp .env.example .env
 
-# Compilar TypeScript
-npm run build
+# Ejecutar migraciones
+npm run migration:run
 
+# Crear índices optimizados
+psql -h localhost -U red_atlas_user -d red_atlas_db -f sql/indexes.sql
+
+# Generar dataset (100k propiedades, 200k anuncios, 150k transacciones)
+npm run seed:production
+```
+
+### 3. Ejecutar
+```bash
 # Desarrollo
 npm run dev
 
 # Producción
-npm start
+npm run build && npm start
+```
+
+## 📊 Dataset de Producción
+
+### Variables de Entorno
+```bash
+# .env
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=password
+DB_NAME=red_atlas_db
+SEED_BATCH_SIZE=5000  # Tamaño de lote para inserción
+```
+
+### Ejecución del Seed
+```bash
+# Dataset completo (idempotente)
+npm run seed:production
+
+# Verificar datos generados
+psql -d red_atlas_db -c "SELECT 
+  (SELECT COUNT(*) FROM propiedades) as propiedades,
+  (SELECT COUNT(*) FROM anuncios) as anuncios, 
+  (SELECT COUNT(*) FROM transacciones) as transacciones;"
 ```
 
 ## 🗄️ Base de Datos
 
-Asegúrate de tener PostgreSQL con PostGIS instalado:
+### Prerequisitos
+```bash
+# PostgreSQL 14+ con PostGIS
+sudo apt install postgresql-14 postgresql-14-postgis-3
 
-```sql
-CREATE DATABASE red_atlas_db;
-CREATE EXTENSION postgis;
+# Crear base de datos
+sudo -u postgres createdb red_atlas_db
+sudo -u postgres psql red_atlas_db -c "CREATE EXTENSION postgis;"
+sudo -u postgres psql red_atlas_db -c "CREATE EXTENSION pg_trgm;"
 ```
+
+### Datos Generados
+- **100,000 propiedades** distribuidas en Argentina (T1) y Uruguay (T2)
+- **200,000 anuncios** con precios realistas por ciudad y tipo
+- **150,000 transacciones** con estados distribuidos (60% pendiente, 30% completada, 10% cancelada)
+- **Coordenadas PostGIS** en bounding boxes realistas
+- **Fechas** distribuidas en últimos 18 meses
+- **UUIDs determinísticos** para reproducibilidad
 
 ## 📡 Endpoints
 
