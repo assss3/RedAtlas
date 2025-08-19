@@ -2,8 +2,15 @@ import { AppDataSource } from '../../config/database';
 import { Propiedad } from './propiedad.entity';
 import { BaseRepositoryImpl } from '../../shared/db/base.repository';
 import { CursorPaginationHelper, CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
+import { OrderValidationHelper, OrderParams } from '../../shared/utils/order-validation.helper';
 
 export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
+  protected orderConfig = {
+    allowedFields: ['createdAt', 'superficie', 'tipo'],
+    defaultField: 'createdAt',
+    defaultDirection: 'DESC' as const
+  };
+
   constructor() {
     super(AppDataSource.getRepository(Propiedad));
   }
@@ -55,9 +62,12 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
     maxSuperficie?: number;
     ambientes?: number;
     title?: string;
+    orderBy?: string;
+    orderDirection?: 'ASC' | 'DESC';
   }): Promise<CursorPaginationResult<Propiedad>> {
-    const { tenantId, cursor, limit: requestLimit, ...searchFilters } = filters;
+    const { tenantId, cursor, limit: requestLimit, orderBy, orderDirection, ...searchFilters } = filters;
     const limit = CursorPaginationHelper.validateLimit(requestLimit);
+    const { field, direction } = OrderValidationHelper.validateAndGetOrder({ orderBy, orderDirection }, this.orderConfig);
 
     const queryBuilder = this.repository
       .createQueryBuilder('propiedad')
@@ -97,7 +107,7 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
     }
 
     queryBuilder
-      .orderBy('propiedad.createdAt', 'DESC')
+      .orderBy(`propiedad.${field}`, direction)
       .addOrderBy('propiedad.id', 'DESC')
       .limit(limit + 1);
 

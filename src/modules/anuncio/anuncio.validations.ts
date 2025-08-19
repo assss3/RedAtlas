@@ -43,6 +43,14 @@ export const searchAnunciosValidation = [
     .isInt({ min: 1, max: 100 })
     .withMessage('Limit must be between 1 and 100')
     .toInt(),
+  query('orderBy')
+    .optional()
+    .isIn(['createdAt', 'price'])
+    .withMessage('OrderBy must be createdAt or price'),
+  query('orderDirection')
+    .optional()
+    .isIn(['ASC', 'DESC'])
+    .withMessage('OrderDirection must be ASC or DESC'),
   query('status')
     .optional()
     .isIn(['activo', 'inactivo', 'reservado'])

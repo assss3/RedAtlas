@@ -1,8 +1,11 @@
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { BaseRepository } from '../../core/interfaces';
 import { CursorPaginationHelper, CursorPaginationResult } from '../utils/cursor-pagination.helper';
+import { OrderValidationHelper, OrderParams, OrderConfig } from '../utils/order-validation.helper';
 
 export abstract class BaseRepositoryImpl<T extends { id: string; tenantId: string; deletedAt?: Date; createdAt: Date }> implements BaseRepository<T> {
+  protected abstract orderConfig: OrderConfig;
+  
   constructor(protected repository: Repository<T>) {}
 
   async create(entity: Partial<T>): Promise<T> {
@@ -16,9 +19,10 @@ export abstract class BaseRepositoryImpl<T extends { id: string; tenantId: strin
     return await this.repository.findOne({ where });
   }
 
-  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<T>> {
+  async findAll(tenantId: string, cursor?: string, limit?: number, orderParams?: OrderParams): Promise<CursorPaginationResult<T>> {
     const validLimit = CursorPaginationHelper.validateLimit(limit);
     const tableName = this.repository.metadata.tableName;
+    const { field, direction } = OrderValidationHelper.validateAndGetOrder(orderParams || {}, this.orderConfig);
     
     const queryBuilder = this.repository
       .createQueryBuilder(tableName)
@@ -30,7 +34,7 @@ export abstract class BaseRepositoryImpl<T extends { id: string; tenantId: strin
     }
 
     queryBuilder
-      .orderBy(`${tableName}.createdAt`, 'DESC')
+      .orderBy(`${tableName}.${field}`, direction)
       .addOrderBy(`${tableName}.id`, 'DESC')
       .limit(validLimit + 1);
 

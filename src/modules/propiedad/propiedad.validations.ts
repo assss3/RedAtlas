@@ -80,6 +80,14 @@ export const searchPropiedadValidation = [
     .isInt({ min: 1, max: 100 })
     .withMessage('Limit must be between 1 and 100')
     .toInt(),
+  query('orderBy')
+    .optional()
+    .isIn(['createdAt', 'superficie', 'tipo'])
+    .withMessage('OrderBy must be createdAt, superficie, or tipo'),
+  query('orderDirection')
+    .optional()
+    .isIn(['ASC', 'DESC'])
+    .withMessage('OrderDirection must be ASC or DESC'),
   query('status')
     .optional()
     .isIn(['disponible', 'no_disponible'])

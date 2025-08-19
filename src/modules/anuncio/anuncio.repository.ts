@@ -4,8 +4,15 @@ import { BaseRepositoryImpl } from '../../shared/db/base.repository';
 import { AnuncioStatus } from './anuncio.interfaces';
 import { AnuncioSearchFilters, SearchResult } from '../../shared/interfaces/search-filters';
 import { CursorPaginationHelper, CursorData, CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
+import { OrderValidationHelper, OrderParams } from '../../shared/utils/order-validation.helper';
 
 export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
+  protected orderConfig = {
+    allowedFields: ['createdAt', 'price'],
+    defaultField: 'createdAt',
+    defaultDirection: 'DESC' as const
+  };
+
   constructor() {
     super(AppDataSource.getRepository(Anuncio));
   }
@@ -41,9 +48,10 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
     );
   }
 
-  async searchWithFilters(filters: AnuncioSearchFilters & { cursor?: string }): Promise<CursorPaginationResult<Anuncio>> {
-    const { tenantId, cursor, limit: requestLimit, ...searchFilters } = filters;
+  async searchWithFilters(filters: AnuncioSearchFilters & { cursor?: string; orderBy?: string; orderDirection?: 'ASC' | 'DESC' }): Promise<CursorPaginationResult<Anuncio>> {
+    const { tenantId, cursor, limit: requestLimit, orderBy, orderDirection, ...searchFilters } = filters;
     const limit = CursorPaginationHelper.validateLimit(requestLimit);
+    const { field, direction } = OrderValidationHelper.validateAndGetOrder({ orderBy, orderDirection }, this.orderConfig);
 
     const queryBuilder = this.repository
       .createQueryBuilder('anuncio')
@@ -98,9 +106,9 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
 
     // Ordenamiento y paginación por cursor
     queryBuilder
-      .orderBy('anuncio.createdAt', 'DESC')
+      .orderBy(`anuncio.${field}`, direction)
       .addOrderBy('anuncio.id', 'DESC')
-      .limit(limit + 1); // +1 para detectar si hay más resultados
+      .limit(limit + 1);
 
     const data = await queryBuilder.getMany();
     return CursorPaginationHelper.buildResult(data, limit);
@@ -115,9 +123,12 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
     propertyId?: string;
     minPrice?: number;
     maxPrice?: number;
+    orderBy?: string;
+    orderDirection?: 'ASC' | 'DESC';
   }): Promise<CursorPaginationResult<Anuncio>> {
-    const { tenantId, cursor, limit: requestLimit, ...searchFilters } = filters;
+    const { tenantId, cursor, limit: requestLimit, orderBy, orderDirection, ...searchFilters } = filters;
     const limit = CursorPaginationHelper.validateLimit(requestLimit);
+    const { field, direction } = OrderValidationHelper.validateAndGetOrder({ orderBy, orderDirection }, this.orderConfig);
 
     const queryBuilder = this.repository
       .createQueryBuilder('anuncio')
@@ -145,7 +156,7 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
     }
 
     queryBuilder
-      .orderBy('anuncio.createdAt', 'DESC')
+      .orderBy(`anuncio.${field}`, direction)
       .addOrderBy('anuncio.id', 'DESC')
       .limit(limit + 1);
 

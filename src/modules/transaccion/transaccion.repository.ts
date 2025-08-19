@@ -2,8 +2,15 @@ import { AppDataSource } from '../../config/database';
 import { Transaccion } from './transaccion.entity';
 import { BaseRepositoryImpl } from '../../shared/db/base.repository';
 import { CursorPaginationHelper, CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
+import { OrderValidationHelper, OrderParams } from '../../shared/utils/order-validation.helper';
 
 export class TransaccionRepository extends BaseRepositoryImpl<Transaccion> {
+  protected orderConfig = {
+    allowedFields: ['createdAt'],
+    defaultField: 'createdAt',
+    defaultDirection: 'DESC' as const
+  };
+
   constructor() {
     super(AppDataSource.getRepository(Transaccion));
   }
@@ -49,9 +56,12 @@ export class TransaccionRepository extends BaseRepositoryImpl<Transaccion> {
     anuncioId?: string;
     minAmount?: number;
     maxAmount?: number;
+    orderBy?: string;
+    orderDirection?: 'ASC' | 'DESC';
   }): Promise<CursorPaginationResult<Transaccion>> {
-    const { tenantId, cursor, limit: requestLimit, ...searchFilters } = filters;
+    const { tenantId, cursor, limit: requestLimit, orderBy, orderDirection, ...searchFilters } = filters;
     const limit = CursorPaginationHelper.validateLimit(requestLimit);
+    const { field, direction } = OrderValidationHelper.validateAndGetOrder({ orderBy, orderDirection }, this.orderConfig);
 
     const queryBuilder = this.repository
       .createQueryBuilder('transaccion')
@@ -81,7 +91,7 @@ export class TransaccionRepository extends BaseRepositoryImpl<Transaccion> {
     }
 
     queryBuilder
-      .orderBy('transaccion.createdAt', 'DESC')
+      .orderBy(`transaccion.${field}`, direction)
       .addOrderBy('transaccion.id', 'DESC')
       .limit(limit + 1);
 
