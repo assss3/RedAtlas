@@ -50,9 +50,11 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
     tipo?: string;
     pais?: string;
     ciudad?: string;
+    calle?: string;
     minSuperficie?: number;
     maxSuperficie?: number;
     ambientes?: number;
+    title?: string;
   }): Promise<CursorPaginationResult<Propiedad>> {
     const { tenantId, cursor, limit: requestLimit, ...searchFilters } = filters;
     const limit = CursorPaginationHelper.validateLimit(requestLimit);
@@ -61,13 +63,11 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
       .createQueryBuilder('propiedad')
       .where('propiedad.tenantId = :tenantId', { tenantId });
 
-    // Aplicar cursor si existe
     if (cursor) {
       const cursorData = CursorPaginationHelper.decodeCursor(cursor);
       CursorPaginationHelper.applyCursorCondition(queryBuilder, cursorData, 'propiedad');
     }
 
-    // Filtros
     if (searchFilters.status) {
       queryBuilder.andWhere('propiedad.status = :status', { status: searchFilters.status });
     }
@@ -80,6 +80,12 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
     if (searchFilters.ciudad) {
       queryBuilder.andWhere('propiedad.ciudad = :ciudad', { ciudad: searchFilters.ciudad });
     }
+    if (searchFilters.calle) {
+      queryBuilder.andWhere('propiedad.calle ILIKE :calle', { calle: `%${searchFilters.calle}%` });
+    }
+    if (searchFilters.title) {
+      queryBuilder.andWhere('propiedad.title ILIKE :title', { title: `%${searchFilters.title}%` });
+    }
     if (searchFilters.minSuperficie) {
       queryBuilder.andWhere('propiedad.superficie >= :minSuperficie', { minSuperficie: searchFilters.minSuperficie });
     }
@@ -90,7 +96,6 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
       queryBuilder.andWhere('propiedad.ambientes = :ambientes', { ambientes: searchFilters.ambientes });
     }
 
-    // Ordenamiento y paginación por cursor
     queryBuilder
       .orderBy('propiedad.createdAt', 'DESC')
       .addOrderBy('propiedad.id', 'DESC')

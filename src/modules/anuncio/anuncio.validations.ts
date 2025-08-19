@@ -1,4 +1,4 @@
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 
 export const createAnuncioValidation = [
   body('propertyId')
@@ -31,4 +31,38 @@ export const getAnuncioValidation = [
   param('id')
     .isUUID()
     .withMessage('Anuncio ID must be a valid UUID')
+];
+
+export const searchAnunciosValidation = [
+  query('cursor')
+    .optional()
+    .isString()
+    .withMessage('Cursor must be a string'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be between 1 and 100')
+    .toInt(),
+  query('status')
+    .optional()
+    .isIn(['activo', 'inactivo', 'reservado'])
+    .withMessage('Status must be activo, inactivo, or reservado'),
+  query('tipo')
+    .optional()
+    .isIn(['venta', 'alquiler'])
+    .withMessage('Tipo must be venta or alquiler'),
+  query('propertyId')
+    .optional()
+    .isUUID()
+    .withMessage('Property ID must be a valid UUID'),
+  query('minPrice')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Min price must be a positive number')
+    .toFloat(),
+  query('maxPrice')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Max price must be a positive number')
+    .toFloat()
 ];

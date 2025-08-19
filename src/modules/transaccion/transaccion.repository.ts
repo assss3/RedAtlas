@@ -59,13 +59,11 @@ export class TransaccionRepository extends BaseRepositoryImpl<Transaccion> {
       .leftJoinAndSelect('transaccion.user', 'user')
       .where('transaccion.tenantId = :tenantId', { tenantId });
 
-    // Aplicar cursor si existe
     if (cursor) {
       const cursorData = CursorPaginationHelper.decodeCursor(cursor);
       CursorPaginationHelper.applyCursorCondition(queryBuilder, cursorData, 'transaccion');
     }
 
-    // Filtros
     if (searchFilters.status) {
       queryBuilder.andWhere('transaccion.status = :status', { status: searchFilters.status });
     }
@@ -82,7 +80,6 @@ export class TransaccionRepository extends BaseRepositoryImpl<Transaccion> {
       queryBuilder.andWhere('transaccion.amount <= :maxAmount', { maxAmount: searchFilters.maxAmount });
     }
 
-    // Ordenamiento y paginación por cursor
     queryBuilder
       .orderBy('transaccion.createdAt', 'DESC')
       .addOrderBy('transaccion.id', 'DESC')

@@ -8,6 +8,8 @@ import { PropiedadService } from '../propiedad/propiedad.service';
 import { PropiedadRepository } from '../propiedad/propiedad.repository';
 import { requireRole } from '../../config/middlewares';
 import { UserRole } from '../usuario/usuario.interfaces';
+import { validate } from '../../config/express-validation.middleware';
+import { searchTransaccionValidation } from './transaccion.validations';
 
 const router = Router();
 const transaccionRepository = new TransaccionRepository();
@@ -19,6 +21,7 @@ const transaccionService = new TransaccionService(transaccionRepository, anuncio
 const transaccionController = new TransaccionController(transaccionService);
 
 router.post('/', requireRole([UserRole.USER]), transaccionController.create);
+router.get('/search', validate(searchTransaccionValidation), transaccionController.searchWithFilters);
 router.get('/', transaccionController.findAll);
 router.get('/user/:userId', transaccionController.findByUser);
 router.get('/anuncio/:anuncioId', transaccionController.findByAnuncio);

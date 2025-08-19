@@ -66,4 +66,17 @@ export class AnuncioService {
   async searchWithFilters(filters: AnuncioSearchFilters & { cursor?: string }): Promise<CursorPaginationResult<Anuncio>> {
     return await this.anuncioRepository.searchWithFilters(filters);
   }
+
+  async searchAnuncios(filters: {
+    tenantId: string;
+    cursor?: string;
+    limit?: number;
+    status?: string;
+    tipo?: string;
+    propertyId?: string;
+    minPrice?: number;
+    maxPrice?: number;
+  }): Promise<CursorPaginationResult<Anuncio>> {
+    return await this.anuncioRepository.searchAnuncios(filters);
+  }
 }

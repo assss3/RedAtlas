@@ -89,4 +89,15 @@ export class AnuncioController {
       next(error);
     }
   };
+
+  searchAnuncios = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { tenantId } = req;
+      const filters = { ...req.query, tenantId: tenantId! };
+      const result = await this.anuncioService.searchAnuncios(filters as any);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }

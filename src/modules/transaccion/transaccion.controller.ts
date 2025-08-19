@@ -126,4 +126,15 @@ export class TransaccionController {
       next(error);
     }
   };
+
+  searchWithFilters = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { tenantId } = req;
+      const filters = { ...req.query, tenantId: tenantId! };
+      const result = await this.transaccionService.searchWithFilters(filters as any);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }

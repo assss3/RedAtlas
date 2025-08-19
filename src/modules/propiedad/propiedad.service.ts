@@ -70,9 +70,11 @@ export class PropiedadService {
     tipo?: string;
     pais?: string;
     ciudad?: string;
+    calle?: string;
     minSuperficie?: number;
     maxSuperficie?: number;
     ambientes?: number;
+    title?: string;
   }): Promise<CursorPaginationResult<Propiedad>> {
     return await this.propiedadRepository.searchWithFilters(filters);
   }

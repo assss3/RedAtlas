@@ -105,4 +105,51 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
     const data = await queryBuilder.getMany();
     return CursorPaginationHelper.buildResult(data, limit);
   }
+
+  async searchAnuncios(filters: {
+    tenantId: string;
+    cursor?: string;
+    limit?: number;
+    status?: string;
+    tipo?: string;
+    propertyId?: string;
+    minPrice?: number;
+    maxPrice?: number;
+  }): Promise<CursorPaginationResult<Anuncio>> {
+    const { tenantId, cursor, limit: requestLimit, ...searchFilters } = filters;
+    const limit = CursorPaginationHelper.validateLimit(requestLimit);
+
+    const queryBuilder = this.repository
+      .createQueryBuilder('anuncio')
+      .where('anuncio.tenantId = :tenantId', { tenantId });
+
+    if (cursor) {
+      const cursorData = CursorPaginationHelper.decodeCursor(cursor);
+      CursorPaginationHelper.applyCursorCondition(queryBuilder, cursorData, 'anuncio');
+    }
+
+    if (searchFilters.status) {
+      queryBuilder.andWhere('anuncio.status = :status', { status: searchFilters.status });
+    }
+    if (searchFilters.tipo) {
+      queryBuilder.andWhere('anuncio.tipo = :tipo', { tipo: searchFilters.tipo });
+    }
+    if (searchFilters.propertyId) {
+      queryBuilder.andWhere('anuncio.propertyId = :propertyId', { propertyId: searchFilters.propertyId });
+    }
+    if (searchFilters.minPrice) {
+      queryBuilder.andWhere('anuncio.price >= :minPrice', { minPrice: searchFilters.minPrice });
+    }
+    if (searchFilters.maxPrice) {
+      queryBuilder.andWhere('anuncio.price <= :maxPrice', { maxPrice: searchFilters.maxPrice });
+    }
+
+    queryBuilder
+      .orderBy('anuncio.createdAt', 'DESC')
+      .addOrderBy('anuncio.id', 'DESC')
+      .limit(limit + 1);
+
+    const data = await queryBuilder.getMany();
+    return CursorPaginationHelper.buildResult(data, limit);
+  }
 }

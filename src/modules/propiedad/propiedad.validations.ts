@@ -1,4 +1,4 @@
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 
 export const createPropertyValidation = [
   body('title')
@@ -68,4 +68,55 @@ export const getPropertyValidation = [
   param('id')
     .isUUID()
     .withMessage('Property ID must be a valid UUID')
+];
+
+export const searchPropiedadValidation = [
+  query('cursor')
+    .optional()
+    .isString()
+    .withMessage('Cursor must be a string'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be between 1 and 100')
+    .toInt(),
+  query('status')
+    .optional()
+    .isIn(['disponible', 'no_disponible'])
+    .withMessage('Status must be disponible or no_disponible'),
+  query('tipo')
+    .optional()
+    .isIn(['departamento', 'casa', 'terreno', 'local', 'oficina'])
+    .withMessage('Tipo must be departamento, casa, terreno, local, or oficina'),
+  query('pais')
+    .optional()
+    .isString()
+    .withMessage('Pais must be a string'),
+  query('ciudad')
+    .optional()
+    .isString()
+    .withMessage('Ciudad must be a string'),
+  query('calle')
+    .optional()
+    .isString()
+    .withMessage('Calle must be a string'),
+  query('title')
+    .optional()
+    .isString()
+    .withMessage('Title must be a string'),
+  query('minSuperficie')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Min superficie must be a positive number')
+    .toFloat(),
+  query('maxSuperficie')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Max superficie must be a positive number')
+    .toFloat(),
+  query('ambientes')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Ambientes must be a positive integer')
+    .toInt()
 ];
