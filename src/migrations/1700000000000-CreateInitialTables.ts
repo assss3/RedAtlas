@@ -31,7 +31,7 @@ export class CreateInitialTables1700000000000 implements MigrationInterface {
         // Create usuarios table
         await queryRunner.query(`CREATE TABLE "usuarios" (
             "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-            "tenant_id" character varying NOT NULL,
+            "tenant_id" uuid NOT NULL,
             "nombre" character varying NOT NULL,
             "email" character varying NOT NULL,
             "password_hash" character varying NOT NULL,
@@ -46,7 +46,7 @@ export class CreateInitialTables1700000000000 implements MigrationInterface {
         // Create propiedades table
         await queryRunner.query(`CREATE TABLE "propiedades" (
             "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-            "tenant_id" character varying NOT NULL,
+            "tenant_id" uuid NOT NULL,
             "title" character varying NOT NULL,
             "tipo" "public"."propiedades_tipo_enum" NOT NULL,
             "ambientes" integer,
@@ -66,7 +66,7 @@ export class CreateInitialTables1700000000000 implements MigrationInterface {
         // Create anuncios table
         await queryRunner.query(`CREATE TABLE "anuncios" (
             "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-            "tenant_id" character varying NOT NULL,
+            "tenant_id" uuid NOT NULL,
             "property_id" uuid NOT NULL,
             "description" text NOT NULL,
             "tipo" "public"."anuncios_tipo_enum" NOT NULL,
@@ -81,7 +81,7 @@ export class CreateInitialTables1700000000000 implements MigrationInterface {
         // Create transacciones table
         await queryRunner.query(`CREATE TABLE "transacciones" (
             "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-            "tenant_id" character varying NOT NULL,
+            "tenant_id" uuid NOT NULL,
             "anuncio_id" uuid NOT NULL,
             "user_id" uuid NOT NULL,
             "amount" numeric(10,2) NOT NULL,
@@ -96,7 +96,7 @@ export class CreateInitialTables1700000000000 implements MigrationInterface {
         await queryRunner.query(`CREATE TABLE "refresh_tokens" (
             "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
             "user_id" uuid NOT NULL,
-            "tenant_id" character varying NOT NULL,
+            "tenant_id" uuid NOT NULL,
             "token" character varying NOT NULL,
             "expires_at" TIMESTAMP NOT NULL,
             "created_at" TIMESTAMP NOT NULL DEFAULT now(),
@@ -104,18 +104,28 @@ export class CreateInitialTables1700000000000 implements MigrationInterface {
         )`);
 
         // Add foreign key constraints
+        await queryRunner.query(`ALTER TABLE "usuarios" ADD CONSTRAINT "FK_usuarios_tenant_id" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE`);
+        await queryRunner.query(`ALTER TABLE "propiedades" ADD CONSTRAINT "FK_propiedades_tenant_id" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE`);
+        await queryRunner.query(`ALTER TABLE "anuncios" ADD CONSTRAINT "FK_anuncios_tenant_id" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE`);
         await queryRunner.query(`ALTER TABLE "anuncios" ADD CONSTRAINT "FK_anuncios_property_id" FOREIGN KEY ("property_id") REFERENCES "propiedades"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "transacciones" ADD CONSTRAINT "FK_transacciones_tenant_id" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE`);
         await queryRunner.query(`ALTER TABLE "transacciones" ADD CONSTRAINT "FK_transacciones_anuncio_id" FOREIGN KEY ("anuncio_id") REFERENCES "anuncios"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "transacciones" ADD CONSTRAINT "FK_transacciones_user_id" FOREIGN KEY ("user_id") REFERENCES "usuarios"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "refresh_tokens" ADD CONSTRAINT "FK_refresh_tokens_tenant_id" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE`);
         await queryRunner.query(`ALTER TABLE "refresh_tokens" ADD CONSTRAINT "FK_refresh_tokens_user_id" FOREIGN KEY ("user_id") REFERENCES "usuarios"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         // Drop foreign key constraints
         await queryRunner.query(`ALTER TABLE "refresh_tokens" DROP CONSTRAINT "FK_refresh_tokens_user_id"`);
+        await queryRunner.query(`ALTER TABLE "refresh_tokens" DROP CONSTRAINT "FK_refresh_tokens_tenant_id"`);
         await queryRunner.query(`ALTER TABLE "transacciones" DROP CONSTRAINT "FK_transacciones_user_id"`);
         await queryRunner.query(`ALTER TABLE "transacciones" DROP CONSTRAINT "FK_transacciones_anuncio_id"`);
+        await queryRunner.query(`ALTER TABLE "transacciones" DROP CONSTRAINT "FK_transacciones_tenant_id"`);
         await queryRunner.query(`ALTER TABLE "anuncios" DROP CONSTRAINT "FK_anuncios_property_id"`);
+        await queryRunner.query(`ALTER TABLE "anuncios" DROP CONSTRAINT "FK_anuncios_tenant_id"`);
+        await queryRunner.query(`ALTER TABLE "propiedades" DROP CONSTRAINT "FK_propiedades_tenant_id"`);
+        await queryRunner.query(`ALTER TABLE "usuarios" DROP CONSTRAINT "FK_usuarios_tenant_id"`);
 
         // Drop tables
         await queryRunner.query(`DROP TABLE "refresh_tokens"`);

@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { Anuncio } from '../anuncio/anuncio.entity';
 import { PropertyType, PropiedadStatus } from './propiedad.interfaces';
+import { Tenant } from '../tenant/tenant.entity';
 @Entity('propiedades')
 export class Propiedad {
   @PrimaryGeneratedColumn('uuid')
@@ -8,6 +9,10 @@ export class Propiedad {
 
   @Column({ name: 'tenant_id' })
   tenantId!: string;
+
+  @ManyToOne(() => Tenant, tenant => tenant.propiedades, { nullable: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant!: Tenant;
 
   @Column()
   title!: string;

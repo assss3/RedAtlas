@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { UserRole } from './usuario.interfaces';
 import { Transaccion } from '../transaccion/transaccion.entity';
+import { Tenant } from '../tenant/tenant.entity';
 
 @Entity('usuarios')
 export class Usuario {
@@ -9,6 +10,10 @@ export class Usuario {
 
   @Column({ name: 'tenant_id' })
   tenantId!: string;
+
+  @ManyToOne(() => Tenant, tenant => tenant.usuarios, { nullable: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant!: Tenant;
 
   @Column()
   nombre!: string;

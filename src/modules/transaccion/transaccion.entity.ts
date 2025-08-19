@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { TransactionStatus } from './transaccion.interfaces';
 import { Anuncio } from '../anuncio/anuncio.entity';
 import { Usuario } from '../usuario/usuario.entity';
+import { Tenant } from '../tenant/tenant.entity';
 
 @Entity('transacciones')
 export class Transaccion {
@@ -10,6 +11,10 @@ export class Transaccion {
 
   @Column({ name: 'tenant_id' })
   tenantId!: string;
+
+  @ManyToOne(() => Tenant, tenant => tenant.transacciones, { nullable: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant!: Tenant;
 
   @Column({ name: 'anuncio_id' })
   anuncioId!: string;

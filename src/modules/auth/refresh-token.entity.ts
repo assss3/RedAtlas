@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Usuario } from '../usuario/usuario.entity';
+import { Tenant } from '../tenant/tenant.entity';
 
 @Entity('refresh_tokens')
 export class RefreshToken {
@@ -15,6 +16,10 @@ export class RefreshToken {
 
   @Column({ name: 'tenant_id' })
   tenantId!: string;
+
+  @ManyToOne(() => Tenant, { nullable: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant!: Tenant;
 
   @Column()
   token!: string;
