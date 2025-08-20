@@ -16,4 +16,10 @@ export const config = {
     password: process.env.DB_PASSWORD || 'password',
     database: process.env.DB_NAME || 'red_atlas_db',
   },
+  redis: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6381'),
+    password: process.env.REDIS_PASSWORD,
+    db: parseInt(process.env.REDIS_DB || '0'),
+  },
 };

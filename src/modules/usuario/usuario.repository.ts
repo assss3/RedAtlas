@@ -4,6 +4,12 @@ import { Usuario } from './usuario.entity';
 import { BaseRepositoryImpl } from '../../shared/db/base.repository';
 
 export class UsuarioRepository extends BaseRepositoryImpl<Usuario> {
+  protected orderConfig = {
+    allowedFields: ['createdAt'],
+    defaultField: 'createdAt',
+    defaultDirection: 'DESC' as const
+  };
+
   constructor() {
     super(AppDataSource.getRepository(Usuario));
   }

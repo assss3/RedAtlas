@@ -4,20 +4,37 @@ import { ValidationError, NotFoundError } from '../../core/errors';
 import { AnuncioStatus } from './anuncio.interfaces';
 import { AnuncioSearchFilters } from '../../shared/interfaces/search-filters';
 import { CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
+import { CacheService } from '../../shared/services/cache.service';
 
 export class AnuncioService {
-  constructor(private anuncioRepository: AnuncioRepository) {}
+  constructor(
+    private anuncioRepository: AnuncioRepository,
+    private cacheService: CacheService = CacheService.getInstance()
+  ) {}
 
   async create(data: Partial<Anuncio>): Promise<Anuncio> {
-    return await this.anuncioRepository.create(data);
+    const anuncio = await this.anuncioRepository.create(data);
+    
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('listing', data.tenantId!);
+    
+    return anuncio;
   }
 
   async findById(id: string, tenantId: string): Promise<Anuncio> {
-    const anuncio = await this.anuncioRepository.findById(id, tenantId);
-    if (!anuncio) {
-      throw new NotFoundError('Anuncio');
-    }
-    return anuncio;
+    const cacheKey = `listing:${tenantId}:${id}`;
+    
+    return await this.cacheService.getOrSet(
+      cacheKey,
+      300, // 5 minutos
+      async () => {
+        const anuncio = await this.anuncioRepository.findById(id, tenantId);
+        if (!anuncio) {
+          throw new NotFoundError('Anuncio');
+        }
+        return anuncio;
+      }
+    );
   }
 
   async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Anuncio>> {
@@ -33,6 +50,10 @@ export class AnuncioService {
     if (!anuncio) {
       throw new NotFoundError('Anuncio');
     }
+    
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('listing', tenantId, id);
+    
     return anuncio;
   }
 
@@ -41,6 +62,9 @@ export class AnuncioService {
     if (!deleted) {
       throw new NotFoundError('Anuncio');
     }
+    
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('listing', tenantId, id);
   }
 
   async restore(id: string, tenantId: string): Promise<Anuncio> {
@@ -48,6 +72,10 @@ export class AnuncioService {
     if (!anuncio) {
       throw new NotFoundError('Anuncio');
     }
+    
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('listing', tenantId, id);
+    
     return anuncio;
   }
 
@@ -64,7 +92,15 @@ export class AnuncioService {
   }
 
   async searchWithFilters(filters: AnuncioSearchFilters & { cursor?: string }): Promise<CursorPaginationResult<Anuncio>> {
-    return await this.anuncioRepository.searchWithFilters(filters);
+    const cacheKey = this.cacheService.generateKey('listings_search', filters.tenantId, filters);
+    
+    return await this.cacheService.getOrSet(
+      cacheKey,
+      120, // 2 minutos
+      async () => {
+        return await this.anuncioRepository.searchWithFilters(filters);
+      }
+    );
   }
 
   async searchAnuncios(filters: {
@@ -77,6 +113,14 @@ export class AnuncioService {
     minPrice?: number;
     maxPrice?: number;
   }): Promise<CursorPaginationResult<Anuncio>> {
-    return await this.anuncioRepository.searchAnuncios(filters);
+    const cacheKey = this.cacheService.generateKey('anuncios_search', filters.tenantId, filters);
+    
+    return await this.cacheService.getOrSet(
+      cacheKey,
+      120, // 2 minutos
+      async () => {
+        return await this.anuncioRepository.searchAnuncios(filters);
+      }
+    );
   }
 }

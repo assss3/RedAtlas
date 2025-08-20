@@ -16,6 +16,7 @@
     "docker:logs": "docker-compose logs -f postgres"
   },
   "dependencies": {
+    "@types/ioredis": "^4.28.10",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
@@ -24,6 +25,7 @@
     "express": "^4.18.2",
     "express-validator": "^7.2.1",
     "helmet": "^7.1.0",
+    "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
     "reflect-metadata": "^0.1.13",
@@ -37,8 +39,8 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.8.7",
     "@types/pg": "^8.10.7",
+    "@types/uuid": "^9.0.0",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.2.2",
-    "@types/uuid": "^9.0.0"
+    "typescript": "^5.2.2"
   }
 }

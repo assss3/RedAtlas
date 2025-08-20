@@ -7,12 +7,14 @@ import { PropiedadService } from '../propiedad/propiedad.service';
 import { AnuncioStatus } from '../anuncio/anuncio.interfaces';
 import { PropiedadStatus } from '../propiedad/propiedad.interfaces';
 import { CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
+import { CacheService } from '../../shared/services/cache.service';
 
 export class TransaccionService {
   constructor(
     private transaccionRepository: TransaccionRepository,
     private anuncioService: AnuncioService,
-    private propiedadService: PropiedadService
+    private propiedadService: PropiedadService,
+    private cacheService: CacheService = CacheService.getInstance()
   ) {}
 
   async create(data: Partial<Transaccion>): Promise<Transaccion> {
@@ -42,15 +44,26 @@ export class TransaccionService {
       transaccion.tenantId
     );
     
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('transaction', transaccion.tenantId);
+    
     return transaccion;
   }
 
   async findById(id: string, tenantId: string): Promise<Transaccion> {
-    const transaccion = await this.transaccionRepository.findById(id, tenantId);
-    if (!transaccion) {
-      throw new NotFoundError('Transacción');
-    }
-    return transaccion;
+    const cacheKey = `transaction:${tenantId}:${id}`;
+    
+    return await this.cacheService.getOrSet(
+      cacheKey,
+      180, // 3 minutos
+      async () => {
+        const transaccion = await this.transaccionRepository.findById(id, tenantId);
+        if (!transaccion) {
+          throw new NotFoundError('Transacción');
+        }
+        return transaccion;
+      }
+    );
   }
 
   async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Transaccion>> {
@@ -70,6 +83,10 @@ export class TransaccionService {
     if (!transaccion) {
       throw new NotFoundError('Transacción');
     }
+    
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('transaction', tenantId, id);
+    
     return transaccion;
   }
 
@@ -78,6 +95,9 @@ export class TransaccionService {
     if (!deleted) {
       throw new NotFoundError('Transacción');
     }
+    
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('transaction', tenantId, id);
   }
 
   async restore(id: string, tenantId: string): Promise<Transaccion> {
@@ -85,6 +105,10 @@ export class TransaccionService {
     if (!transaccion) {
       throw new NotFoundError('Transacción');
     }
+    
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('transaction', tenantId, id);
+    
     return transaccion;
   }
 
@@ -115,6 +139,9 @@ export class TransaccionService {
       tenantId
     );
     
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('transaction', tenantId, id);
+    
     return updatedTransaccion!;
   }
 
@@ -140,6 +167,9 @@ export class TransaccionService {
     
     // La propiedad permanece no disponible
     
+    // Invalidar cache
+    await this.cacheService.invalidateEntity('transaction', tenantId, id);
+    
     return updatedTransaccion!;
   }
 
@@ -161,6 +191,14 @@ export class TransaccionService {
     minAmount?: number;
     maxAmount?: number;
   }): Promise<CursorPaginationResult<Transaccion>> {
-    return await this.transaccionRepository.searchWithFilters(filters);
+    const cacheKey = this.cacheService.generateKey('transactions_search', filters.tenantId, filters);
+    
+    return await this.cacheService.getOrSet(
+      cacheKey,
+      30, // 30 segundos
+      async () => {
+        return await this.transaccionRepository.searchWithFilters(filters);
+      }
+    );
   }
 }
