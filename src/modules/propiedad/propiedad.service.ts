@@ -117,4 +117,36 @@ export class PropiedadService {
       }
     );
   }
+
+  async findNearby(lat: number, lng: number, radius: number, tenantId: string, cursor?: string, limit?: number): Promise<any> {
+    const result = await this.propiedadRepository.findNearby(lat, lng, radius, tenantId, cursor, limit);
+    
+    return {
+      type: "FeatureCollection",
+      features: result.data.map(prop => ({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [parseFloat(prop.lng), parseFloat(prop.lat)]
+        },
+        properties: {
+          id: prop.id,
+          title: prop.title,
+          tipo: prop.tipo,
+          superficie: parseFloat(prop.superficie),
+          pais: prop.pais,
+          ciudad: prop.ciudad,
+          calle: prop.calle,
+          altura: prop.altura,
+          ambientes: prop.ambientes,
+          status: prop.status,
+          distance: parseFloat(prop.distance)
+        }
+      })),
+      pagination: {
+        hasNext: result.hasNext,
+        nextCursor: result.nextCursor
+      }
+    };
+  }
 }

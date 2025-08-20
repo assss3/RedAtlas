@@ -128,3 +128,27 @@ export const searchPropiedadValidation = [
     .withMessage('Ambientes must be a positive integer')
     .toInt()
 ];
+
+export const geoSearchValidation = [
+  query('lat')
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('Latitude must be between -90 and 90')
+    .toFloat(),
+  query('lng')
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('Longitude must be between -180 and 180')
+    .toFloat(),
+  query('radius')
+    .isFloat({ min: 0.1, max: 50000 })
+    .withMessage('Radius must be between 0.1 and 50000 meters')
+    .toFloat(),
+  query('cursor')
+    .optional()
+    .isString()
+    .withMessage('Cursor must be a string'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be between 1 and 100')
+    .toInt()
+];

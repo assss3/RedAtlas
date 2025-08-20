@@ -114,4 +114,38 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
     const data = await queryBuilder.getMany();
     return CursorPaginationHelper.buildResult(data, limit);
   }
+
+  async findNearby(lat: number, lng: number, radius: number, tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<any>> {
+    const actualLimit = CursorPaginationHelper.validateLimit(limit);
+    
+    let query = `
+      SELECT 
+        p.id, p.title, p.tipo, p.superficie, p.pais, p.ciudad, p.calle, p.altura, p.ambientes, p.status, p.created_at,
+        ST_X(p.location::geometry) as lng,
+        ST_Y(p.location::geometry) as lat,
+        ST_Distance(p.location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) as distance
+      FROM propiedades p
+      WHERE p.tenant_id = $3
+        AND p.deleted_at IS NULL
+        AND p.location IS NOT NULL
+        AND ST_DWithin(p.location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $4)
+    `;
+    
+    const params = [lat, lng, tenantId, radius];
+    
+    if (cursor) {
+      const cursorData = CursorPaginationHelper.decodeCursor(cursor);
+      query += ` AND p.id < $${params.length + 1}`;
+      params.push(cursorData.id);
+    }
+    
+    query += `
+      ORDER BY p.location <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, p.id DESC
+      LIMIT $${params.length + 1}
+    `;
+    params.push(actualLimit + 1);
+    
+    const rawResults = await this.repository.query(query, params);
+    return CursorPaginationHelper.buildResult(rawResults, actualLimit);
+  }
 }

@@ -79,4 +79,22 @@ export class PropiedadController {
       next(error);
     }
   };
+
+  findNearby = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { tenantId } = req;
+      const { lat, lng, radius, cursor, limit } = req.query;
+      const result = await this.propiedadService.findNearby(
+        parseFloat(lat as string),
+        parseFloat(lng as string), 
+        parseFloat(radius as string),
+        tenantId!,
+        cursor as string,
+        limit ? parseInt(limit as string) : undefined
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
