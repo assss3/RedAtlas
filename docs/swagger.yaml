@@ -1,0 +1,1605 @@
+openapi: 3.0.3
+info:
+  title: Red Atlas Express API
+  description: |
+    API REST para gestión de propiedades inmobiliarias desarrollada con TypeScript, Express, TypeORM y PostgreSQL con PostGIS.
+    
+    ## Autenticación
+    La API utiliza JWT Bearer tokens para autenticación. Incluye el token en el header:
+    ```
+    Authorization: Bearer <jwt-token>
+    ```
+    
+    ## Multi-tenant
+    Todas las entidades incluyen `tenant_id` para aislamiento de datos por inquilino.
+    
+    ## Roles
+    - **ADMIN**: Puede crear/editar Propiedades y Anuncios
+    - **USER**: Puede crear Transacciones
+    
+    ## Paginación
+    La API utiliza cursor-based pagination con los parámetros:
+    - `cursor`: Token de paginación (opcional)
+    - `limit`: Número máximo de resultados (1-100, default: 20)
+  version: 1.0.0
+  contact:
+    name: Red Atlas Express
+    email: support@redatlasexpress.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo local
+  - url: https://api.redatlasexpress.com
+    description: Producción
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Verifica el estado de la API
+      security: []
+      responses:
+        '200':
+          description: API funcionando correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T10:30:00.000Z"
+
+  # AUTH ENDPOINTS
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Iniciar sesión
+      description: Autentica un usuario y devuelve tokens JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "admin@example.com"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "password123"
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Renovar token
+      description: Renueva el access token usando el refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Token renovado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Cerrar sesión
+      description: Invalida el refresh token del usuario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Logout exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out successfully"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # USER ENDPOINTS
+  /api/users:
+    post:
+      tags:
+        - Users
+      summary: Crear usuario
+      description: Crea un nuevo usuario (solo ADMIN)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Usuario creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Users
+      summary: Listar usuarios
+      description: Obtiene todos los usuarios del tenant
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+  /api/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Obtener usuario
+      description: Obtiene un usuario por ID
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Users
+      summary: Actualizar usuario
+      description: Actualiza un usuario existente
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Users
+      summary: Eliminar usuario
+      description: Elimina un usuario (soft delete)
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '204':
+          description: Usuario eliminado exitosamente
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # PROPERTY ENDPOINTS
+  /api/properties:
+    post:
+      tags:
+        - Properties
+      summary: Crear propiedad
+      description: Crea una nueva propiedad (solo ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePropertyRequest'
+      responses:
+        '201':
+          description: Propiedad creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Properties
+      summary: Listar propiedades
+      description: Obtiene todas las propiedades con paginación cursor-based
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Lista de propiedades
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPropertiesResponse'
+
+  /api/properties/search:
+    get:
+      tags:
+        - Properties
+      summary: Buscar propiedades con filtros
+      description: Busca propiedades aplicando múltiples filtros
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OrderByPropertyParam'
+        - $ref: '#/components/parameters/OrderDirectionParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PropertyStatus'
+        - name: tipo
+          in: query
+          schema:
+            $ref: '#/components/schemas/PropertyType'
+        - name: pais
+          in: query
+          schema:
+            type: string
+            example: "Argentina"
+        - name: ciudad
+          in: query
+          schema:
+            type: string
+            example: "Buenos Aires"
+        - name: calle
+          in: query
+          schema:
+            type: string
+            example: "Av. Corrientes"
+        - name: title
+          in: query
+          schema:
+            type: string
+            example: "Departamento moderno"
+        - name: minSuperficie
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            example: 50
+        - name: maxSuperficie
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            example: 200
+        - name: ambientes
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            example: 3
+      responses:
+        '200':
+          description: Resultados de búsqueda
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPropertiesResponse'
+
+  /api/properties/nearby:
+    get:
+      tags:
+        - Properties
+      summary: Buscar propiedades cercanas
+      description: Busca propiedades dentro de un radio específico usando PostGIS
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+            example: -34.6037
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+            example: -58.3816
+        - name: radius
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: 0.1
+            maximum: 50000
+            example: 1000
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Propiedades cercanas encontradas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPropertiesResponse'
+
+  /api/properties/{id}:
+    get:
+      tags:
+        - Properties
+      summary: Obtener propiedad
+      description: Obtiene una propiedad por ID
+      parameters:
+        - $ref: '#/components/parameters/PropertyIdParam'
+      responses:
+        '200':
+          description: Propiedad encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Properties
+      summary: Actualizar propiedad
+      description: Actualiza una propiedad existente (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/PropertyIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePropertyRequest'
+      responses:
+        '200':
+          description: Propiedad actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Properties
+      summary: Eliminar propiedad
+      description: Elimina una propiedad (soft delete, solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/PropertyIdParam'
+      responses:
+        '204':
+          description: Propiedad eliminada exitosamente
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/properties/{id}/restore:
+    patch:
+      tags:
+        - Properties
+      summary: Restaurar propiedad
+      description: Restaura una propiedad eliminada (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/PropertyIdParam'
+      responses:
+        '200':
+          description: Propiedad restaurada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # LISTING ENDPOINTS
+  /api/listings:
+    post:
+      tags:
+        - Listings
+      summary: Crear anuncio
+      description: Crea un nuevo anuncio (solo ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListingRequest'
+      responses:
+        '201':
+          description: Anuncio creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Listings
+      summary: Listar anuncios
+      description: Obtiene todos los anuncios con paginación cursor-based
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Lista de anuncios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedListingsResponse'
+
+  /api/listings/search:
+    get:
+      tags:
+        - Listings
+      summary: Buscar anuncios (método 1)
+      description: Busca anuncios aplicando filtros básicos
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ListingStatus'
+        - name: tipo
+          in: query
+          schema:
+            $ref: '#/components/schemas/OperationType'
+        - name: propertyId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+            minimum: 0
+      responses:
+        '200':
+          description: Resultados de búsqueda
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedListingsResponse'
+
+  /api/listings/searchAnuncios:
+    get:
+      tags:
+        - Listings
+      summary: Buscar anuncios (método 2)
+      description: Busca anuncios con filtros avanzados y validación
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OrderByListingParam'
+        - $ref: '#/components/parameters/OrderDirectionParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ListingStatus'
+        - name: tipo
+          in: query
+          schema:
+            $ref: '#/components/schemas/OperationType'
+        - name: propertyId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+            minimum: 0
+      responses:
+        '200':
+          description: Resultados de búsqueda avanzada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedListingsResponse'
+
+  /api/listings/{id}:
+    get:
+      tags:
+        - Listings
+      summary: Obtener anuncio
+      description: Obtiene un anuncio por ID
+      parameters:
+        - $ref: '#/components/parameters/ListingIdParam'
+      responses:
+        '200':
+          description: Anuncio encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Listings
+      summary: Actualizar anuncio
+      description: Actualiza un anuncio existente (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/ListingIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateListingRequest'
+      responses:
+        '200':
+          description: Anuncio actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Listings
+      summary: Eliminar anuncio
+      description: Elimina un anuncio (soft delete, solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/ListingIdParam'
+      responses:
+        '204':
+          description: Anuncio eliminado exitosamente
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/listings/{id}/restore:
+    patch:
+      tags:
+        - Listings
+      summary: Restaurar anuncio
+      description: Restaura un anuncio eliminado (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/ListingIdParam'
+      responses:
+        '200':
+          description: Anuncio restaurado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/listings/property/{propertyId}:
+    get:
+      tags:
+        - Listings
+      summary: Obtener anuncios por propiedad
+      description: Obtiene todos los anuncios de una propiedad específica
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Anuncios de la propiedad
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Listing'
+
+  # TRANSACTION ENDPOINTS
+  /api/transactions:
+    post:
+      tags:
+        - Transactions
+      summary: Crear transacción
+      description: Crea una nueva transacción (solo USER)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+      responses:
+        '201':
+          description: Transacción creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Transactions
+      summary: Listar transacciones
+      description: Obtiene todas las transacciones con paginación cursor-based
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Lista de transacciones
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransactionsResponse'
+
+  /api/transactions/search:
+    get:
+      tags:
+        - Transactions
+      summary: Buscar transacciones con filtros
+      description: Busca transacciones aplicando múltiples filtros
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OrderDirectionParam'
+        - name: orderBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt]
+            default: createdAt
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TransactionStatus'
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: anuncioId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: minAmount
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: maxAmount
+          in: query
+          schema:
+            type: number
+            minimum: 0
+      responses:
+        '200':
+          description: Resultados de búsqueda
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransactionsResponse'
+
+  /api/transactions/{id}:
+    get:
+      tags:
+        - Transactions
+      summary: Obtener transacción
+      description: Obtiene una transacción por ID
+      parameters:
+        - $ref: '#/components/parameters/TransactionIdParam'
+      responses:
+        '200':
+          description: Transacción encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Transactions
+      summary: Actualizar transacción
+      description: Actualiza una transacción existente (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/TransactionIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTransactionRequest'
+      responses:
+        '200':
+          description: Transacción actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Transactions
+      summary: Eliminar transacción
+      description: Elimina una transacción (soft delete, solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/TransactionIdParam'
+      responses:
+        '204':
+          description: Transacción eliminada exitosamente
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/transactions/{id}/restore:
+    patch:
+      tags:
+        - Transactions
+      summary: Restaurar transacción
+      description: Restaura una transacción eliminada (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/TransactionIdParam'
+      responses:
+        '200':
+          description: Transacción restaurada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/transactions/{id}/cancel:
+    patch:
+      tags:
+        - Transactions
+      summary: Cancelar transacción
+      description: Cancela una transacción y libera la propiedad (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/TransactionIdParam'
+      responses:
+        '200':
+          description: Transacción cancelada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/transactions/{id}/complete:
+    patch:
+      tags:
+        - Transactions
+      summary: Completar transacción
+      description: Completa una transacción y finaliza la operación (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/TransactionIdParam'
+      responses:
+        '200':
+          description: Transacción completada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/transactions/user/{userId}:
+    get:
+      tags:
+        - Transactions
+      summary: Obtener transacciones por usuario
+      description: Obtiene todas las transacciones de un usuario específico
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Transacciones del usuario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+
+  /api/transactions/anuncio/{anuncioId}:
+    get:
+      tags:
+        - Transactions
+      summary: Obtener transacciones por anuncio
+      description: Obtiene todas las transacciones de un anuncio específico
+      parameters:
+        - name: anuncioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Transacciones del anuncio
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CursorParam:
+      name: cursor
+      in: query
+      description: Token de paginación para obtener la siguiente página
+      schema:
+        type: string
+      example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Número máximo de resultados por página
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+
+    OrderDirectionParam:
+      name: orderDirection
+      in: query
+      description: Dirección del ordenamiento
+      schema:
+        type: string
+        enum: [ASC, DESC]
+        default: DESC
+      example: DESC
+
+    OrderByPropertyParam:
+      name: orderBy
+      in: query
+      description: Campo por el cual ordenar las propiedades
+      schema:
+        type: string
+        enum: [createdAt, superficie, tipo]
+        default: createdAt
+      example: createdAt
+
+    OrderByListingParam:
+      name: orderBy
+      in: query
+      description: Campo por el cual ordenar los anuncios
+      schema:
+        type: string
+        enum: [createdAt, price]
+        default: createdAt
+      example: createdAt
+
+    UserIdParam:
+      name: id
+      in: path
+      required: true
+      description: ID único del usuario
+      schema:
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+
+    PropertyIdParam:
+      name: id
+      in: path
+      required: true
+      description: ID único de la propiedad
+      schema:
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+
+    ListingIdParam:
+      name: id
+      in: path
+      required: true
+      description: ID único del anuncio
+      schema:
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+
+    TransactionIdParam:
+      name: id
+      in: path
+      required: true
+      description: ID único de la transacción
+      schema:
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+
+  schemas:
+    # ENUMS
+    UserRole:
+      type: string
+      enum: [SUPER_ADMIN, ADMIN, USER]
+      example: ADMIN
+
+    PropertyType:
+      type: string
+      enum: [departamento, casa, terreno, local, oficina]
+      example: departamento
+
+    PropertyStatus:
+      type: string
+      enum: [disponible, no_disponible]
+      example: disponible
+
+    OperationType:
+      type: string
+      enum: [venta, alquiler]
+      example: venta
+
+    ListingStatus:
+      type: string
+      enum: [activo, inactivo, reservado]
+      example: activo
+
+    TransactionStatus:
+      type: string
+      enum: [pendiente, completada, cancelada]
+      example: pendiente
+
+    # AUTH SCHEMAS
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          $ref: '#/components/schemas/User'
+
+    # USER SCHEMAS
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        tenantId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440010"
+        nombre:
+          type: string
+          example: "Juan Pérez"
+        email:
+          type: string
+          format: email
+          example: "juan.perez@example.com"
+        rol:
+          $ref: '#/components/schemas/UserRole'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    CreateUserRequest:
+      type: object
+      required:
+        - nombre
+        - email
+        - passwordHash
+        - rol
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 30
+          example: "Juan Pérez"
+        email:
+          type: string
+          format: email
+          example: "juan.perez@example.com"
+        passwordHash:
+          type: string
+          minLength: 6
+          maxLength: 20
+          example: "password123"
+        rol:
+          $ref: '#/components/schemas/UserRole'
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: "Juan Carlos Pérez"
+        email:
+          type: string
+          format: email
+          example: "juan.carlos@example.com"
+        rol:
+          $ref: '#/components/schemas/UserRole'
+
+    # PROPERTY SCHEMAS
+    Property:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        tenantId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440010"
+        title:
+          type: string
+          example: "Departamento moderno en Palermo"
+        tipo:
+          $ref: '#/components/schemas/PropertyType'
+        ambientes:
+          type: integer
+          nullable: true
+          example: 3
+        superficie:
+          type: number
+          format: decimal
+          example: 85.50
+        pais:
+          type: string
+          example: "Argentina"
+        ciudad:
+          type: string
+          example: "Buenos Aires"
+        calle:
+          type: string
+          example: "Av. Corrientes"
+        altura:
+          type: string
+          example: "1234"
+        location:
+          type: string
+          nullable: true
+          description: "Coordenadas PostGIS en formato POINT(longitude latitude)"
+          example: "POINT(-58.3816 -34.6037)"
+        status:
+          $ref: '#/components/schemas/PropertyStatus'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    CreatePropertyRequest:
+      type: object
+      required:
+        - title
+        - tipo
+        - superficie
+        - pais
+        - ciudad
+        - calle
+        - altura
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: "Departamento moderno en Palermo"
+        tipo:
+          $ref: '#/components/schemas/PropertyType'
+        superficie:
+          type: number
+          minimum: 0
+          example: 85.50
+        pais:
+          type: string
+          example: "Argentina"
+        ciudad:
+          type: string
+          example: "Buenos Aires"
+        calle:
+          type: string
+          example: "Av. Corrientes"
+        altura:
+          type: string
+          example: "1234"
+        ambientes:
+          type: integer
+          minimum: 1
+          example: 3
+        location:
+          type: string
+          pattern: '^POINT\(-?\d+\.?\d*\s-?\d+\.?\d*\)$'
+          example: "POINT(-58.3816 -34.6037)"
+        status:
+          $ref: '#/components/schemas/PropertyStatus'
+
+    UpdatePropertyRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: "Departamento renovado en Palermo"
+        tipo:
+          $ref: '#/components/schemas/PropertyType'
+        superficie:
+          type: number
+          minimum: 0
+          example: 90.00
+        ambientes:
+          type: integer
+          minimum: 1
+          example: 4
+        location:
+          type: string
+          pattern: '^POINT\(-?\d+\.?\d*\s-?\d+\.?\d*\)$'
+          example: "POINT(-58.3816 -34.6037)"
+        status:
+          $ref: '#/components/schemas/PropertyStatus'
+
+    # LISTING SCHEMAS
+    Listing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        tenantId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440010"
+        propertyId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        description:
+          type: string
+          example: "Hermoso departamento con vista al río, completamente amueblado"
+        tipo:
+          $ref: '#/components/schemas/OperationType'
+        price:
+          type: number
+          format: decimal
+          example: 250000.00
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+        property:
+          $ref: '#/components/schemas/Property'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    CreateListingRequest:
+      type: object
+      required:
+        - propertyId
+        - description
+        - tipo
+        - price
+      properties:
+        propertyId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        description:
+          type: string
+          minLength: 10
+          maxLength: 500
+          example: "Hermoso departamento con vista al río, completamente amueblado"
+        tipo:
+          $ref: '#/components/schemas/OperationType'
+        price:
+          type: number
+          minimum: 0
+          example: 250000.00
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+
+    UpdateListingRequest:
+      type: object
+      properties:
+        propertyId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        description:
+          type: string
+          minLength: 10
+          maxLength: 500
+          example: "Departamento renovado con nuevos acabados"
+        tipo:
+          $ref: '#/components/schemas/OperationType'
+        price:
+          type: number
+          minimum: 0
+          example: 275000.00
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+
+    # TRANSACTION SCHEMAS
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        tenantId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440010"
+        anuncioId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        userId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        amount:
+          type: number
+          format: decimal
+          example: 250000.00
+        status:
+          $ref: '#/components/schemas/TransactionStatus'
+        anuncio:
+          $ref: '#/components/schemas/Listing'
+        user:
+          $ref: '#/components/schemas/User'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    CreateTransactionRequest:
+      type: object
+      required:
+        - anuncioId
+        - amount
+      properties:
+        anuncioId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        amount:
+          type: number
+          minimum: 0
+          example: 250000.00
+
+    UpdateTransactionRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0
+          example: 275000.00
+
+    # PAGINATION SCHEMAS
+    PaginationMeta:
+      type: object
+      properties:
+        hasNextPage:
+          type: boolean
+          example: true
+        nextCursor:
+          type: string
+          nullable: true
+          example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+
+    PaginatedPropertiesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Property'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    PaginatedListingsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Listing'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    PaginatedTransactionsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    # ERROR SCHEMAS
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+          example: "/errors/validation-error"
+        title:
+          type: string
+          example: "Validation Error"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "The request contains invalid parameters"
+        instance:
+          type: string
+          format: uri
+          example: "/api/properties"
+      additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Solicitud inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "/errors/validation-error"
+            title: "Validation Error"
+            status: 400
+            detail: "Title must be between 5 and 200 characters"
+            instance: "/api/properties"
+
+    Unauthorized:
+      description: No autorizado - Token inválido o faltante
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "/errors/authentication-error"
+            title: "Authentication Error"
+            status: 401
+            detail: "Invalid or missing access token"
+            instance: "/api/properties"
+
+    Forbidden:
+      description: Prohibido - Permisos insuficientes
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "/errors/authorization-error"
+            title: "Authorization Error"
+            status: 403
+            detail: "Insufficient permissions to access this resource"
+            instance: "/api/properties"
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "/errors/not-found"
+            title: "Not Found"
+            status: 404
+            detail: "Property not found"
+            instance: "/api/properties/123e4567-e89b-12d3-a456-426614174000"
+
+    InternalError:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "/errors/internal-error"
+            title: "Internal Server Error"
+            status: 500
+            detail: "An unexpected error occurred"
+            instance: "/api/properties"
+
+tags:
+  - name: Health
+    description: Endpoints de salud y estado de la API
+  - name: Authentication
+    description: Autenticación y gestión de tokens JWT
+  - name: Users
+    description: Gestión de usuarios del sistema
+  - name: Properties
+    description: Gestión de propiedades inmobiliarias
+  - name: Listings
+    description: Gestión de anuncios de propiedades
+  - name: Transactions
+    description: Gestión de transacciones inmobiliarias

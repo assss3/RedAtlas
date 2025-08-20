@@ -48,7 +48,7 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
     );
   }
 
-  async searchWithFilters(filters: AnuncioSearchFilters & { cursor?: string; orderBy?: string; orderDirection?: 'ASC' | 'DESC' }): Promise<CursorPaginationResult<Anuncio>> {
+  async searchWithPropertiesFilters(filters: AnuncioSearchFilters & { cursor?: string; orderBy?: string; orderDirection?: 'ASC' | 'DESC' }): Promise<CursorPaginationResult<Anuncio>> {
     const { tenantId, cursor, limit: requestLimit, orderBy, orderDirection, ...searchFilters } = filters;
     const limit = CursorPaginationHelper.validateLimit(requestLimit);
     const { field, direction } = OrderValidationHelper.validateAndGetOrder({ orderBy, orderDirection }, this.orderConfig);
@@ -114,7 +114,7 @@ export class AnuncioRepository extends BaseRepositoryImpl<Anuncio> {
     return CursorPaginationHelper.buildResult(data, limit);
   }
 
-  async searchAnuncios(filters: {
+  async searchWithFilters(filters: {
     tenantId: string;
     cursor?: string;
     limit?: number;

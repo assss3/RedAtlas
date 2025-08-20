@@ -91,19 +91,19 @@ export class AnuncioService {
     return await this.anuncioRepository.findByTipo(tipo, tenantId);
   }
 
-  async searchWithFilters(filters: AnuncioSearchFilters & { cursor?: string }): Promise<CursorPaginationResult<Anuncio>> {
+  async searchWithPropertiesFilters(filters: AnuncioSearchFilters & { cursor?: string }): Promise<CursorPaginationResult<Anuncio>> {
     const cacheKey = this.cacheService.generateKey('listings_search', filters.tenantId, filters);
     
     return await this.cacheService.getOrSet(
       cacheKey,
       120, // 2 minutos
       async () => {
-        return await this.anuncioRepository.searchWithFilters(filters);
+        return await this.anuncioRepository.searchWithPropertiesFilters(filters);
       }
     );
   }
 
-  async searchAnuncios(filters: {
+  async searchWithFilters(filters: {
     tenantId: string;
     cursor?: string;
     limit?: number;
@@ -119,7 +119,7 @@ export class AnuncioService {
       cacheKey,
       120, // 2 minutos
       async () => {
-        return await this.anuncioRepository.searchAnuncios(filters);
+        return await this.anuncioRepository.searchWithFilters(filters);
       }
     );
   }

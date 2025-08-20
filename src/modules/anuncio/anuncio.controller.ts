@@ -79,22 +79,22 @@ export class AnuncioController {
     }
   };
 
-  search = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  searchWithPropertiesFilters = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { tenantId } = req;
       const filters = { ...req.query, tenantId: tenantId! };
-      const result = await this.anuncioService.searchWithFilters(filters as any);
+      const result = await this.anuncioService.searchWithPropertiesFilters(filters as any);
       res.json(result);
     } catch (error) {
       next(error);
     }
   };
 
-  searchAnuncios = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  searchWithFilters = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { tenantId } = req;
       const filters = { ...req.query, tenantId: tenantId! };
-      const result = await this.anuncioService.searchAnuncios(filters as any);
+      const result = await this.anuncioService.searchWithFilters(filters as any);
       res.json(result);
     } catch (error) {
       next(error);
