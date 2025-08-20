@@ -1,0 +1,20 @@
+{
+  "name": "red-atlas-performance-tests",
+  "version": "1.0.0",
+  "description": "Performance testing suite for Red Atlas Express API",
+  "scripts": {
+    "test:all": "node run-all-tests.js",
+    "test:realistic": "node simple-realistic.js",
+    "test:cache": "node cache-comparison.js",
+    "test:advanced": "node realistic-test.js",
+    "test:properties": "node test-properties.js",
+    "test:listings": "node test-listings.js",
+    "test:transactions": "node test-transactions.js",
+    "warmup": "node warmup.js",
+    "debug": "node debug-test.js",
+    "install": "npm install autocannon"
+  },
+  "dependencies": {
+    "autocannon": "^7.15.0"
+  }
+}
