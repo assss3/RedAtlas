@@ -144,7 +144,7 @@ export class PropiedadService {
         }
       })),
       pagination: {
-        hasNext: result.hasNext,
+        hasMore: result.hasMore,
         nextCursor: result.nextCursor
       }
     };
