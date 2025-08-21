@@ -37,9 +37,7 @@ export class AnuncioService {
     );
   }
 
-  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Anuncio>> {
-    return await this.anuncioRepository.findAll(tenantId, cursor, limit);
-  }
+
 
   async findByPropertyId(propertyId: string, tenantId: string): Promise<Anuncio[]> {
     return await this.anuncioRepository.findByPropertyId(propertyId, tenantId);

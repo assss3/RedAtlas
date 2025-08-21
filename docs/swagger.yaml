@@ -21,6 +21,11 @@ info:
     La API utiliza cursor-based pagination con los parámetros:
     - `cursor`: Token de paginación (opcional)
     - `limit`: Número máximo de resultados (1-100, default: 20)
+    
+    ## Búsquedas
+    - Los endpoints `GET /` (listar todos) internamente usan `searchWithFilters` sin filtros
+    - Los endpoints `/search` permiten filtrado avanzado con los mismos parámetros de paginación
+    - Los anuncios tienen búsqueda adicional `/searchWithPropertiesFilters` que incluye filtros de propiedades
   version: 1.0.0
   contact:
     name: Red Atlas Express
@@ -306,7 +311,7 @@ paths:
       tags:
         - Properties
       summary: Buscar propiedades con filtros
-      description: Busca propiedades aplicando múltiples filtros
+      description: Busca propiedades aplicando múltiples filtros. Si no se proporcionan filtros, devuelve todas las propiedades (equivalente a listar todas)
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -532,11 +537,13 @@ paths:
     get:
       tags:
         - Listings
-      summary: Buscar anuncios (método 1)
-      description: Busca anuncios aplicando filtros básicos
+      summary: Buscar anuncios con filtros
+      description: Busca anuncios aplicando filtros básicos con validación y ordenamiento. Si no se proporcionan filtros, devuelve todos los anuncios (equivalente a listar todos)
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OrderByListingParam'
+        - $ref: '#/components/parameters/OrderDirectionParam'
         - name: status
           in: query
           schema:
@@ -568,17 +575,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedListingsResponse'
 
-  /api/listings/searchAnuncios:
+  /api/listings/searchWithPropertiesFilters:
     get:
       tags:
         - Listings
-      summary: Buscar anuncios (método 2)
-      description: Busca anuncios con filtros avanzados y validación
+      summary: Buscar anuncios con filtros de propiedades
+      description: Busca anuncios aplicando filtros tanto de anuncios como de propiedades
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/OrderByListingParam'
         - $ref: '#/components/parameters/OrderDirectionParam'
+        # Filtros de anuncio
         - name: status
           in: query
           schema:
@@ -602,9 +610,46 @@ paths:
           schema:
             type: number
             minimum: 0
+        # Filtros de propiedad
+        - name: propertyTipo
+          in: query
+          schema:
+            $ref: '#/components/schemas/PropertyType'
+        - name: propertyStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/PropertyStatus'
+        - name: pais
+          in: query
+          schema:
+            type: string
+            example: "Argentina"
+        - name: ciudad
+          in: query
+          schema:
+            type: string
+            example: "Buenos Aires"
+        - name: minSuperficie
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            example: 50
+        - name: maxSuperficie
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            example: 200
+        - name: ambientes
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            example: 3
       responses:
         '200':
-          description: Resultados de búsqueda avanzada
+          description: Resultados de búsqueda con filtros de propiedades
           content:
             application/json:
               schema:
@@ -760,7 +805,7 @@ paths:
       tags:
         - Transactions
       summary: Buscar transacciones con filtros
-      description: Busca transacciones aplicando múltiples filtros
+      description: Busca transacciones aplicando múltiples filtros. Si no se proporcionan filtros, devuelve todas las transacciones (equivalente a listar todas)
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'

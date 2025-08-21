@@ -66,9 +66,7 @@ export class TransaccionService {
     );
   }
 
-  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Transaccion>> {
-    return await this.transaccionRepository.findAll(tenantId, cursor, limit);
-  }
+
 
   async findByUserId(userId: string, tenantId: string): Promise<Transaccion[]> {
     return await this.transaccionRepository.findByUserId(userId, tenantId);

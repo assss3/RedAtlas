@@ -36,9 +36,7 @@ export class PropiedadService {
     );
   }
 
-  async findAll(tenantId: string, cursor?: string, limit?: number): Promise<CursorPaginationResult<Propiedad>> {
-    return await this.propiedadRepository.findAll(tenantId, cursor, limit);
-  }
+
 
   async update(id: string, data: Partial<Propiedad>, tenantId: string): Promise<Propiedad> {
     const propiedad = await this.propiedadRepository.update(id, data, tenantId);

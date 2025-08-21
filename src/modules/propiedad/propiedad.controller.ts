@@ -32,7 +32,7 @@ export class PropiedadController {
     try {
       const { tenantId } = req;
       const { cursor, limit } = req.query;
-      const result = await this.propiedadService.findAll(tenantId!, cursor as string, limit ? parseInt(limit as string) : undefined);
+      const result = await this.propiedadService.searchWithFilters({ tenantId: tenantId!, cursor: cursor as string, limit: limit ? parseInt(limit as string) : undefined });
       res.json(result);
     } catch (error) {
       next(error);
