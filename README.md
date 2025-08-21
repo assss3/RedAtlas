@@ -221,3 +221,28 @@ El campo `location` en Propiedad está configurado para PostGIS:
 ## 🔧 Multi-tenant
 
 Todas las entidades incluyen `tenant_id` para aislamiento de datos por inquilino.
+
+## 🧪 Testing
+
+### Ejecutar Tests
+```bash
+# Todos los tests
+npm test
+
+# Solo tests unitarios
+npm run test:unit
+
+# Tests en modo watch
+npm run test:watch
+
+# Reporte de cobertura
+npm run test:coverage
+```
+
+### Cobertura de Tests
+- ✅ **Servicios**: Lógica de negocio, validaciones, operaciones CRUD
+- ✅ **Controladores**: Manejo de requests, control de acceso por roles
+- ✅ **Utilidades**: Cache, paginación, manejo de errores
+- ✅ **Middleware**: Autenticación, validación, formateo de errores
+
+Ver [TESTING_GUIDE.md](TESTING_GUIDE.md) para documentación completa.
