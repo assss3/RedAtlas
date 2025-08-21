@@ -34,6 +34,29 @@ export const errorHandler = (
     return res.status(403).json(apiError.toProblemDetails());
   }
 
+  // Handle multer errors
+  if (error.message === 'Unexpected field' || (error as any).code === 'UNEXPECTED_FIELD') {
+    const apiError = new ApiError(
+      400,
+      ErrorTypes.VALIDATION_ERROR,
+      'File upload error',
+      'Expected field name is "file"',
+      req.originalUrl
+    );
+    return res.status(400).json(apiError.toProblemDetails());
+  }
+
+  if ((error as any).code === 'LIMIT_FILE_SIZE') {
+    const apiError = new ApiError(
+      400,
+      ErrorTypes.VALIDATION_ERROR,
+      'File too large',
+      'File size exceeds 100MB limit',
+      req.originalUrl
+    );
+    return res.status(400).json(apiError.toProblemDetails());
+  } 
+
   const apiError = new ApiError(
     500,
     ErrorTypes.INTERNAL_ERROR,

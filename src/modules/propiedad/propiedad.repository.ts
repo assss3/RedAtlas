@@ -148,4 +148,39 @@ export class PropiedadRepository extends BaseRepositoryImpl<Propiedad> {
     const rawResults = await this.repository.query(query, params);
     return CursorPaginationHelper.buildResult(rawResults, actualLimit);
   }
+
+  async upsertBatch(properties: any[], tenantId: string): Promise<{ processed: number; success: number; errors: number }> {
+    const processed = properties.length;
+    let success = 0;
+    let errors = 0;
+
+    for (const prop of properties) {
+      try {
+        if (prop.location) {
+          await this.repository.query(
+            `INSERT INTO propiedades (tenant_id, title, tipo, superficie, pais, ciudad, calle, altura, ambientes, status, location) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, ST_SetSRID(ST_GeomFromText($11), 4326)::geography)`,
+            [prop.tenantId, prop.title, prop.tipo, prop.superficie, prop.pais, prop.ciudad, prop.calle, prop.altura, prop.ambientes, 'disponible', prop.location]
+          );
+        } else {
+          await this.repository.query(
+            `INSERT INTO propiedades (tenant_id, title, tipo, superficie, pais, ciudad, calle, altura, ambientes, status) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [prop.tenantId, prop.title, prop.tipo, prop.superficie, prop.pais, prop.ciudad, prop.calle, prop.altura, prop.ambientes, 'disponible']
+          );
+        }
+        success++;
+      } catch (error) {
+        // Skip duplicates silently, count as success
+        if ((error as any).code === '23505') { // unique_violation
+          success++;
+        } else {
+          console.error('Property insert error:', (error as Error).message);
+          errors++;
+        }
+      }
+    }
+
+    return { processed, success, errors };
+  }
 }

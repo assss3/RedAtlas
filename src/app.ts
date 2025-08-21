@@ -13,6 +13,7 @@ import { propiedadRoutes } from './modules/propiedad/propiedad.routes';
 import { anuncioRoutes } from './modules/anuncio/anuncio.routes';
 import { transaccionRoutes } from './modules/transaccion/transaccion.routes';
 import { authRoutes } from './modules/auth/auth.routes';
+import { importRoutes } from './modules/import/import.routes';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/users', usuarioRoutes);
 app.use('/api/properties', propiedadRoutes);
 app.use('/api/listings', anuncioRoutes);
 app.use('/api/transactions', transaccionRoutes);
+app.use('/api/imports', importRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

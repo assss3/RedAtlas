@@ -167,6 +167,12 @@ npm run seed:production
 # Desarrollo con hot-reload
 npm run dev
 
+# En otra terminal, iniciar el worker de imports
+# Por cuestiones de desarrollo al inciar se borran los mock-sqs-queue por lo tanto inicia de 0
+# en caso de que corras un sqs y el worker este apagado luego cuando inicie las borrara
+# Solo en modo dev
+npm run import:worker
+
 # Producción
 npm run build && npm start
 ```
@@ -330,6 +336,127 @@ redis-cli KEYS "properties:tenant-123*"
 
 # Limpiar cache específico
 redis-cli DEL $(redis-cli KEYS "properties_search:tenant-123*")
+```
+
+## Sistema de Importación Masiva
+
+### Arquitectura del Worker
+
+El sistema utiliza un **worker asíncrono** para procesar imports de CSV de forma escalable:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   API Server    │───▶│   SQS Queue     │───▶│  Import Worker  │
+│ (Upload CSV)   │    │  (Batches)     │    │ (Process DB)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### Flujo de Procesamiento
+
+1. **Upload CSV** (API Server):
+   - Calcula hash SHA-256 del archivo
+   - Verifica duplicados por hash
+   - Procesa CSV en streaming
+   - Divide en batches de 1000 registros
+   - Envía batches a cola SQS
+
+2. **Worker Processing**:
+   - Consume mensajes de la cola
+   - Aplica deduplicación por mensaje
+   - Inserta registros en PostgreSQL
+   - Maneja errores individuales
+   - Actualiza progreso en tiempo real
+
+### Endpoints de Import
+
+| Endpoint | Método | Descripción | Rol |
+|----------|---------|-------------|-----|
+| `/api/imports` | POST | Subir CSV | ADMIN |
+| `/api/imports/history` | GET | Historial | Cualquiera |
+| `/api/imports/{id}` | GET | Estado | Cualquiera |
+
+### Uso del Sistema
+
+```http
+POST /api/imports
+Authorization: Bearer TOKEN
+Content-Type: multipart/form-data
+
+[Body: archivo CSV]
+```
+
+**Respuesta:**
+```json
+{
+  "importId": "123e4567-e89b-12d3-a456-426614174000",
+  "message": "Import started successfully"
+}
+```
+
+**Consultar progreso:**
+```http
+GET /api/imports/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Respuesta:**
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "filename": "properties-100k.csv",
+  "status": "processing",
+  "totalRows": 100000,
+  "processedRows": 75000,
+  "successRows": 74850,
+  "errorRows": 150,
+  "errors": [
+    {
+      "row": 1523,
+      "field": "superficie",
+      "message": "Superficie must be a positive number"
+    }
+  ]
+}
+```
+
+### Formato CSV Requerido
+
+```csv
+title,tipo,superficie,pais,ciudad,calle,altura,ambientes,latitude,longitude
+Casa en Palermo,casa,120,Argentina,Buenos Aires,Av. Santa Fe,1234,3,-34.5755,-58.4370
+Departamento Moderno,departamento,85,Argentina,Buenos Aires,Corrientes,5678,2,-34.6037,-58.3816
+```
+
+**Campos obligatorios:** `title`, `tipo`, `superficie`, `pais`, `ciudad`, `calle`, `altura`  
+**Campos opcionales:** `ambientes`, `latitude`, `longitude`  
+**Tipos válidos:** `casa`, `departamento`, `oficina`, `local`, `terreno`, `galpon`
+
+### Características del Worker
+
+- **Deduplicación**: Por hash de archivo y por mensaje individual
+- **Reintentos**: Máximo 2 reintentos por batch fallido
+- **Dead Letter Queue**: Mensajes fallidos se almacenan en `mensajes_con_error`
+- **Resiliente**: Una fila errónea no detiene el import completo
+- **Escalable**: Procesa 100k+ registros eficientemente
+- **Limpieza automática**: Al reiniciar, limpia cola y memoria
+
+### Iniciar el Worker
+
+```bash
+# Desarrollo
+npm run import:worker
+
+# Producción (con PM2)
+pm2 start "npm run import:worker" --name "import-worker"
+```
+
+**Output esperado:**
+```
+🔗 Database connected for import worker
+🧹 Cleared SQS queue and processed messages
+🧹 Queue cleared on startup
+🚀 Import worker started
+📥 Mock SQS: Received 10 messages
+📊 Processing Stats: { processed: 1000, errors: 0, retries: 0 }
 ```
 
 ## Cómo Acceder a Swagger UI

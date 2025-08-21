@@ -6,6 +6,7 @@ import { Anuncio } from '../modules/anuncio/anuncio.entity';
 import { Transaccion } from '../modules/transaccion/transaccion.entity';
 import { Tenant } from '../modules/tenant/tenant.entity';
 import { RefreshToken } from '../modules/auth/refresh-token.entity';
+import { ImportJob } from '../modules/import/import.entity';
 import { config } from './env';
 
 export const AppDataSource = new DataSource({
@@ -17,7 +18,7 @@ export const AppDataSource = new DataSource({
   database: config.db.database,
   synchronize: config.nodeEnv === 'development',
   logging: config.nodeEnv === 'development',
-  entities: [Usuario, Propiedad, Anuncio, Transaccion, Tenant, RefreshToken],
+  entities: [Usuario, Propiedad, Anuncio, Transaccion, Tenant, RefreshToken, ImportJob],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],
 });
