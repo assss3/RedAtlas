@@ -47,6 +47,10 @@ Red Atlas Express es una API REST robusta para gestión de propiedades inmobilia
 - **ADMIN**: Gestiona propiedades y anuncios, controla transacciones
 - **USER**: Crea transacciones sobre anuncios disponibles
 
+**Validaciones de integridad:**
+- No se pueden crear anuncios en propiedades `NO_DISPONIBLE`
+- No se pueden crear transacciones en anuncios `INACTIVO` o `RESERVADO`
+
 ### Ciclo de Estados
 
 ```mermaid
@@ -73,16 +77,20 @@ graph TD
 ### Reglas de Estado
 
 1. **Creación de Transacción (USER)**:
+   - **Validación**: Solo anuncios en estado `ACTIVO` (no `RESERVADO` ni `INACTIVO`)
+   - **Validación**: No debe existir transacción `PENDIENTE` previa
    - Transacción → `PENDIENTE`
    - Todos los anuncios de la propiedad → `RESERVADO`
    - Propiedad → `NO_DISPONIBLE`
 
 2. **Completar Transacción (ADMIN)**:
+   - **Validación**: Solo transacciones en estado `PENDIENTE`
    - Transacción → `COMPLETADA`
    - Todos los anuncios → `INACTIVO`
    - Propiedad permanece `NO_DISPONIBLE`
 
 3. **Cancelar Transacción (ADMIN)**:
+   - **Validación**: Solo transacciones en estado `PENDIENTE`
    - Transacción → `CANCELADA`
    - Todos los anuncios → `ACTIVO`
    - Propiedad → `DISPONIBLE`
@@ -350,3 +358,331 @@ curl -X POST http://localhost:3001/api/auth/login \
 # 3. Ingresar: Bearer <tu-access-token>
 # 4. Ahora puedes probar endpoints protegidos
 ```
+
+## Escalabilidad a 1M+ Registros
+
+### Dataset Actual vs Objetivo
+
+**Configuración Actual (Script de Seeds):**
+- 100,000 propiedades (50k por tenant)
+- 200,000 anuncios (100k por tenant)
+- 150,000 transacciones (75k por tenant)
+- 2 tenants con datos geográficos realistas
+- Inserción por lotes de 5,000 registros
+
+**Objetivo de Escalabilidad:**
+- 1M+ propiedades
+- 2M+ anuncios
+- 1.5M+ transacciones
+- Múltiples tenants
+
+### Estrategia de Particionamiento
+
+#### 1. Particionamiento por Tenant (Hash)
+
+```sql
+-- Crear tabla particionada por tenant_id
+CREATE TABLE propiedades_partitioned (
+    LIKE propiedades INCLUDING ALL
+) PARTITION BY HASH (tenant_id);
+
+-- Crear 4 particiones para distribución uniforme
+CREATE TABLE propiedades_p0 PARTITION OF propiedades_partitioned
+    FOR VALUES WITH (modulus 4, remainder 0);
+CREATE TABLE propiedades_p1 PARTITION OF propiedades_partitioned
+    FOR VALUES WITH (modulus 4, remainder 1);
+-- ... continuar para p2, p3
+```
+
+#### 2. Particionamiento Híbrido para Transacciones
+
+```sql
+-- Particionamiento por fecha + sub-particionamiento por tenant
+CREATE TABLE transacciones_partitioned (
+    LIKE transacciones INCLUDING ALL
+) PARTITION BY RANGE (created_at);
+
+-- Particiones mensuales
+CREATE TABLE transacciones_2024_01 PARTITION OF transacciones_partitioned
+    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+
+-- Sub-particionamiento por tenant
+ALTER TABLE transacciones_2024_01 PARTITION BY HASH (tenant_id);
+```
+
+### Plan de Índices Optimizados
+
+#### Índices por Entidad
+
+```sql
+-- Propiedades: Búsquedas frecuentes
+CREATE INDEX CONCURRENTLY idx_propiedades_tenant_status 
+    ON propiedades (tenant_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX CONCURRENTLY idx_propiedades_tenant_ciudad_tipo 
+    ON propiedades (tenant_id, ciudad, tipo);
+CREATE INDEX CONCURRENTLY idx_propiedades_location_gist 
+    ON propiedades USING GIST (location);  -- PostGIS espacial
+
+-- Anuncios: Filtros de precio y estado
+CREATE INDEX CONCURRENTLY idx_anuncios_tenant_status 
+    ON anuncios (tenant_id, status);
+CREATE INDEX CONCURRENTLY idx_anuncios_tenant_price 
+    ON anuncios (tenant_id, price) WHERE status = 'activo';
+CREATE INDEX CONCURRENTLY idx_anuncios_property_id 
+    ON anuncios (property_id);
+
+-- Transacciones: Estados y fechas
+CREATE INDEX CONCURRENTLY idx_transacciones_tenant_status 
+    ON transacciones (tenant_id, status);
+CREATE INDEX CONCURRENTLY idx_transacciones_created_desc 
+    ON transacciones (created_at DESC);
+CREATE INDEX CONCURRENTLY idx_transacciones_user_id 
+    ON transacciones (user_id);
+```
+
+#### Script de Índices por Partición
+
+```sql
+-- Función para crear índices en todas las particiones
+CREATE OR REPLACE FUNCTION create_partition_indexes(table_name text)
+RETURNS void AS $$
+DECLARE
+    partition_name text;
+BEGIN
+    FOR partition_name IN 
+        SELECT schemaname||'.'||tablename 
+        FROM pg_tables 
+        WHERE tablename LIKE table_name || '_p%'
+    LOOP
+        EXECUTE format('CREATE INDEX CONCURRENTLY IF NOT EXISTS %I_tenant_status_idx 
+                       ON %s (tenant_id, status)', partition_name, partition_name);
+        
+        IF table_name = 'propiedades' THEN
+            EXECUTE format('CREATE INDEX CONCURRENTLY IF NOT EXISTS %I_location_gist_idx 
+                           ON %s USING GIST (location)', partition_name, partition_name);
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Configuración PostgreSQL para 1M+ Registros
+
+```ini
+# postgresql.conf para servidor con 32GB RAM
+shared_buffers = 8GB
+effective_cache_size = 24GB
+work_mem = 512MB
+maintenance_work_mem = 2GB
+
+# Conexiones y paralelismo
+max_connections = 300
+max_worker_processes = 16
+max_parallel_workers = 12
+
+# PostGIS y extensiones
+max_locks_per_transaction = 512
+shared_preload_libraries = 'pg_stat_statements,auto_explain'
+
+# Autovacuum optimizado
+autovacuum_max_workers = 6
+autovacuum_naptime = 30s
+```
+
+### Migración Gradual (Zero Downtime)
+
+```bash
+# 1. Backup completo
+pg_dump -Fc -Z9 red_atlas_db > backup_pre_partition_$(date +%Y%m%d).dump
+
+# 2. Crear tablas particionadas
+psql -f create_partitioned_tables.sql
+
+# 3. Migrar datos por lotes (script basado en seed.ts)
+npm run migrate:to-partitions
+
+# 4. Intercambiar tablas
+psql -c "BEGIN; ALTER TABLE propiedades RENAME TO propiedades_old; 
+         ALTER TABLE propiedades_new RENAME TO propiedades; COMMIT;"
+```
+
+### Monitoreo de Particiones
+
+```sql
+-- Tamaño por partición
+SELECT 
+    tablename,
+    pg_size_pretty(pg_total_relation_size(tablename)) as size
+FROM pg_tables 
+WHERE tablename LIKE 'propiedades_p%' 
+ORDER BY pg_total_relation_size(tablename) DESC;
+
+-- Distribución de datos
+SELECT 
+    tableoid::regclass as partition_name,
+    COUNT(*) as row_count
+FROM propiedades 
+GROUP BY tableoid;
+```
+
+### Hardware Recomendado
+
+| Escala | CPU | RAM | Storage | Network |
+|--------|-----|-----|---------|----------|
+| 1M registros | 8 cores | 32GB | NVMe SSD 1TB | 1Gbps |
+| 10M+ registros | 16+ cores | 64GB+ | NVMe RAID 10, 2TB+ | 10Gbps |
+
+### Queries Optimizadas para Particiones
+
+```sql
+-- Búsqueda multi-filtro (usa partition pruning)
+SELECT p.*, a.price
+FROM propiedades p
+JOIN anuncios a ON p.id = a.property_id
+WHERE p.tenant_id = '550e8400-e29b-41d4-a716-446655440010'  -- Partition pruning
+  AND p.ciudad = 'Buenos Aires'
+  AND p.tipo = 'departamento'
+  AND p.status = 'disponible'
+LIMIT 20;
+
+-- Búsqueda geográfica con PostGIS
+SELECT p.*, ST_Distance(p.location, ST_Point(-58.3816, -34.6037)) as distancia
+FROM propiedades p
+WHERE p.tenant_id = '550e8400-e29b-41d4-a716-446655440010'
+  AND ST_DWithin(p.location, ST_Point(-58.3816, -34.6037), 1000)
+ORDER BY p.location <-> ST_Point(-58.3816, -34.6037)
+LIMIT 10;
+```
+
+**Guía completa:** [docs/escalado.md](./docs/escalado.md)
+
+## Locks Distribuidos con Redis
+
+### Casos de Uso Implementados
+
+El sistema utiliza **locks distribuidos con Redis** para prevenir condiciones de carrera en operaciones críticas del módulo de anuncios:
+
+#### 1. Actualización de Estado por Propiedad
+
+```typescript
+// Previene que múltiples transacciones reserven la misma propiedad simultáneamente
+async updateStatusByPropertyId(propertyId: string, status: AnuncioStatus, tenantId: string) {
+  const lockKey = `property_status_lock:${tenantId}:${propertyId}`;
+  
+  await this.lockService.withLock(lockKey, 10, async () => {
+    await this.anuncioRepository.updateStatusByPropertyId(propertyId, status, tenantId);
+    await this.cacheService.invalidateEntity('listing', tenantId);
+  });
+}
+```
+
+**Escenario crítico**: Cuando un USER crea una transacción, todos los anuncios de la propiedad deben cambiar a `RESERVADO` atómicamente.
+
+#### 2. Creación de Anuncios
+
+```typescript
+// Previene anuncios duplicados del mismo tipo para una propiedad
+async create(data: Partial<Anuncio>) {
+  const lockKey = `create_listing_lock:${data.tenantId}:${data.propertyId}`;
+  
+  return await this.lockService.withLock(lockKey, 15, async () => {
+    // Verificar que no exista anuncio activo del mismo tipo
+    const existingListings = await this.findByPropertyId(data.propertyId!, data.tenantId!);
+    const activeOfSameType = existingListings.find(a => 
+      a.tipo === data.tipo && a.status === AnuncioStatus.ACTIVO
+    );
+    
+    if (activeOfSameType) {
+      throw new ValidationError(`Ya existe un anuncio activo de ${data.tipo} para esta propiedad`);
+    }
+    
+    return await this.anuncioRepository.create(data);
+  });
+}
+```
+
+**Escenario crítico**: Evita que se creen múltiples anuncios de "venta" o "alquiler" para la misma propiedad.
+
+#### 3. Actualización de Precio/Estado
+
+```typescript
+// Lock condicional solo para campos críticos
+async update(id: string, data: Partial<Anuncio>, tenantId: string) {
+  if (data.price !== undefined || data.status !== undefined) {
+    const lockKey = `update_listing_lock:${tenantId}:${id}`;
+    
+    return await this.lockService.withLock(lockKey, 10, async () => {
+      return await this.anuncioRepository.update(id, data, tenantId);
+    });
+  }
+  
+  // Otros campos sin lock
+  return await this.anuncioRepository.update(id, data, tenantId);
+}
+```
+
+**Escenario crítico**: Actualizaciones concurrentes de precio durante negociaciones.
+
+### Implementación del Lock Service
+
+```typescript
+export class LockService {
+  async withLock<T>(key: string, ttlSeconds: number, operation: () => Promise<T>): Promise<T> {
+    const lockValue = await this.acquireLock(key, ttlSeconds);
+    if (!lockValue) {
+      throw new Error(`Could not acquire lock for key: ${key}`);
+    }
+
+    try {
+      return await operation();
+    } finally {
+      await this.releaseLock(key, lockValue);
+    }
+  }
+
+  private async acquireLock(key: string, ttlSeconds: number): Promise<string | null> {
+    const lockValue = `${Date.now()}-${Math.random()}`;
+    const result = await redis.set(key, lockValue, 'PX', ttlSeconds * 1000, 'NX');
+    return result === 'OK' ? lockValue : null;
+  }
+
+  private async releaseLock(key: string, lockValue: string): Promise<boolean> {
+    const script = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    return await redis.eval(script, 1, key, lockValue) === 1;
+  }
+}
+```
+
+### Beneficios de esta Estrategia
+
+1. **Consistencia de Datos**: Previene estados inconsistentes en operaciones concurrentes
+2. **Multi-tenant Seguro**: Locks aislados por `tenantId`
+3. **TTL Automático**: Los locks expiran automáticamente (10-15 segundos)
+4. **Atomic Release**: Script Lua garantiza liberación atómica
+5. **Granularidad Fina**: Locks específicos por recurso, no globales
+
+### Monitoreo de Locks
+
+```bash
+# Ver locks activos
+redis-cli KEYS "*_lock:*"
+
+# Ver locks por tenant
+redis-cli KEYS "*_lock:tenant-123:*"
+
+# Limpiar locks expirados manualmente (si es necesario)
+redis-cli EVAL "return redis.call('del', unpack(redis.call('keys', ARGV[1])))" 0 "*_lock:*"
+```
+
+### Casos de Error y Recuperación
+
+- **Lock no disponible**: La operación falla inmediatamente con error claro
+- **TTL expiration**: Los locks se liberan automáticamente después del TTL
+- **Redis unavailable**: Las operaciones fallan rápidamente sin bloquear la aplicación
+- **Process crash**: Los locks expiran automáticamente por TTL

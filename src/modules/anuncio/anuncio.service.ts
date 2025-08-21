@@ -5,20 +5,44 @@ import { AnuncioStatus } from './anuncio.interfaces';
 import { AnuncioSearchFilters } from '../../shared/interfaces/search-filters';
 import { CursorPaginationResult } from '../../shared/utils/cursor-pagination.helper';
 import { CacheService } from '../../shared/services/cache.service';
+import { LockService } from '../../shared/services/lock.service';
+import { PropiedadStatus } from '../propiedad/propiedad.interfaces';
+import { PropiedadService } from '../propiedad/propiedad.service';
 
 export class AnuncioService {
   constructor(
     private anuncioRepository: AnuncioRepository,
-    private cacheService: CacheService = CacheService.getInstance()
+    private propiedadService: PropiedadService,
+    private cacheService: CacheService = CacheService.getInstance(),
+    private lockService: LockService = LockService.getInstance()
   ) {}
 
   async create(data: Partial<Anuncio>): Promise<Anuncio> {
-    const anuncio = await this.anuncioRepository.create(data);
+    const lockKey = `create_listing_lock:${data.tenantId}:${data.propertyId}`;
     
-    // Invalidar cache
-    await this.cacheService.invalidateEntity('listing', data.tenantId!);
-    
-    return anuncio;
+    return await this.lockService.withLock(lockKey, 15, async () => {
+      // Verificar que la propiedad esté disponible
+      const propiedad = await this.propiedadService.findById(data.propertyId!, data.tenantId!);
+      
+      if (propiedad.status !== PropiedadStatus.DISPONIBLE) {
+        throw new ValidationError(`No se puede crear anuncio. La propiedad está en estado: ${propiedad.status}`);
+      }
+      
+      // Verificar que la propiedad no tenga anuncios activos del mismo tipo
+      const existingListings = await this.anuncioRepository.findByPropertyId(data.propertyId!, data.tenantId!);
+      const activeOfSameType = existingListings.find(a => a.tipo === data.tipo && a.status === AnuncioStatus.ACTIVO);
+      
+      if (activeOfSameType) {
+        throw new ValidationError(`Ya existe un anuncio activo de ${data.tipo} para esta propiedad`);
+      }
+      
+      const anuncio = await this.anuncioRepository.create(data);
+      
+      // Invalidar cache
+      await this.cacheService.invalidateEntity('listing', data.tenantId!);
+      
+      return anuncio;
+    });
   }
 
   async findById(id: string, tenantId: string): Promise<Anuncio> {
@@ -44,6 +68,24 @@ export class AnuncioService {
   }
 
   async update(id: string, data: Partial<Anuncio>, tenantId: string): Promise<Anuncio> {
+    // Si se actualiza precio o status, usar lock
+    if (data.price !== undefined || data.status !== undefined) {
+      const lockKey = `update_listing_lock:${tenantId}:${id}`;
+      
+      return await this.lockService.withLock(lockKey, 10, async () => {
+        const anuncio = await this.anuncioRepository.update(id, data, tenantId);
+        if (!anuncio) {
+          throw new NotFoundError('Anuncio');
+        }
+        
+        // Invalidar cache
+        await this.cacheService.invalidateEntity('listing', tenantId, id);
+        
+        return anuncio;
+      });
+    }
+    
+    // Para otros campos, actualizar sin lock
     const anuncio = await this.anuncioRepository.update(id, data, tenantId);
     if (!anuncio) {
       throw new NotFoundError('Anuncio');
@@ -78,7 +120,13 @@ export class AnuncioService {
   }
 
   async updateStatusByPropertyId(propertyId: string, status: AnuncioStatus, tenantId: string): Promise<void> {
-    await this.anuncioRepository.updateStatusByPropertyId(propertyId, status, tenantId);
+    const lockKey = `property_status_lock:${tenantId}:${propertyId}`;
+    
+    await this.lockService.withLock(lockKey, 10, async () => {
+      await this.anuncioRepository.updateStatusByPropertyId(propertyId, status, tenantId);
+      // Invalidar cache después de la actualización
+      await this.cacheService.invalidateEntity('listing', tenantId);
+    });
   }
 
   async findByStatus(status: AnuncioStatus, tenantId: string): Promise<Anuncio[]> {

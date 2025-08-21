@@ -39,10 +39,15 @@ describe('AuthService', () => {
     });
     
     service = new AuthService();
-    jest.clearAllMocks();
     
-    process.env.JWT_SECRET = 'test-secret';
-    process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
+    // Mock config values directly
+    jest.doMock('../../src/config/env', () => ({
+      config: {
+        jwtSecret: 'test-secret',
+        refreshTokenSecret: 'test-refresh-secret'
+      }
+    }));
+    jest.clearAllMocks();
   });
 
   describe('login', () => {

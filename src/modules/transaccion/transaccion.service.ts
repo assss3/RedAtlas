@@ -18,17 +18,27 @@ export class TransaccionService {
   ) {}
 
   async create(data: Partial<Transaccion>): Promise<Transaccion> {
+    // Obtener el anuncio para verificar su estado
+    const anuncio = await this.anuncioService.findById(data.anuncioId!, data.tenantId!);
+    
+    // Verificar que el anuncio esté ACTIVO (no reservado ni inactivo)
+    if (anuncio.status !== AnuncioStatus.ACTIVO) {
+      throw new ValidationError(`No se puede crear transacción. El anuncio está en estado: ${anuncio.status}`);
+    }
+    
+    // Verificar que no exista transacción pendiente para este anuncio
+    const pendingTransactions = await this.transaccionRepository.findPendingByAnuncioId(data.anuncioId!, data.tenantId!);
+    if (pendingTransactions.length > 0) {
+      throw new ValidationError('Ya existe una transacción pendiente para este anuncio');
+    }
+    
     // Crear transacción con estado pendiente
     const transaccionData = {
       ...data,
       status: TransactionStatus.PENDIENTE
     };
-
     
     const transaccion = await this.transaccionRepository.create(transaccionData);
-    
-    // Obtener el anuncio para acceder a la propiedad
-    const anuncio = await this.anuncioService.findById(transaccion.anuncioId, transaccion.tenantId);
     
     // Cambiar todos los anuncios activos de la propiedad a reservado
     await this.anuncioService.updateStatusByPropertyId(
@@ -113,6 +123,11 @@ export class TransaccionService {
   async cancel(id: string, tenantId: string): Promise<Transaccion> {
     const transaccion = await this.findById(id, tenantId);
     
+    // Solo se puede cancelar transacciones PENDIENTES
+    if (transaccion.status !== TransactionStatus.PENDIENTE) {
+      throw new ValidationError(`No se puede cancelar transacción en estado: ${transaccion.status}`);
+    }
+    
     // Actualizar estado de transacción
     const updatedTransaccion = await this.transaccionRepository.update(
       id, 
@@ -145,6 +160,11 @@ export class TransaccionService {
 
   async complete(id: string, tenantId: string): Promise<Transaccion> {
     const transaccion = await this.findById(id, tenantId);
+    
+    // Solo se puede completar transacciones PENDIENTES
+    if (transaccion.status !== TransactionStatus.PENDIENTE) {
+      throw new ValidationError(`No se puede completar transacción en estado: ${transaccion.status}`);
+    }
     
     // Actualizar estado de transacción
     const updatedTransaccion = await this.transaccionRepository.update(

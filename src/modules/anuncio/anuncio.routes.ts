@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { AnuncioController } from './anuncio.controller';
 import { AnuncioService } from './anuncio.service';
 import { AnuncioRepository } from './anuncio.repository';
+import { PropiedadService } from '../propiedad/propiedad.service';
+import { PropiedadRepository } from '../propiedad/propiedad.repository';
 import { validate } from '../../config/express-validation.middleware';
 import { createAnuncioValidation, updateAnuncioValidation, getAnuncioValidation, searchAnunciosValidation } from './anuncio.validations';
 import { requireRole } from '../../config/middlewares';
@@ -9,7 +11,9 @@ import { UserRole } from '../usuario/usuario.interfaces';
 
 const router = Router();
 const anuncioRepository = new AnuncioRepository();
-const anuncioService = new AnuncioService(anuncioRepository);
+const propiedadRepository = new PropiedadRepository();
+const propiedadService = new PropiedadService(propiedadRepository);
+const anuncioService = new AnuncioService(anuncioRepository, propiedadService);
 const anuncioController = new AnuncioController(anuncioService);
 
 router.post('/', requireRole([UserRole.ADMIN]), validate(createAnuncioValidation), anuncioController.create);

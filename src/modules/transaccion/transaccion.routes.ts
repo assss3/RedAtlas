@@ -15,8 +15,8 @@ const router = Router();
 const transaccionRepository = new TransaccionRepository();
 const anuncioRepository = new AnuncioRepository();
 const propiedadRepository = new PropiedadRepository();
-const anuncioService = new AnuncioService(anuncioRepository);
 const propiedadService = new PropiedadService(propiedadRepository);
+const anuncioService = new AnuncioService(anuncioRepository, propiedadService);
 const transaccionService = new TransaccionService(transaccionRepository, anuncioService, propiedadService);
 const transaccionController = new TransaccionController(transaccionService);
 

@@ -1,25 +1,31 @@
 import { AnuncioService } from '../../src/modules/anuncio/anuncio.service';
 import { AnuncioRepository } from '../../src/modules/anuncio/anuncio.repository';
+import { PropiedadService } from '../../src/modules/propiedad/propiedad.service';
 import { CacheService } from '../../src/shared/services/cache.service';
 import { NotFoundError } from '../../src/core/errors';
 import { AnuncioStatus } from '../../src/modules/anuncio/anuncio.interfaces';
 
 jest.mock('../../src/modules/anuncio/anuncio.repository');
+jest.mock('../../src/modules/propiedad/propiedad.service');
 jest.mock('../../src/shared/services/cache.service');
 
 describe('AnuncioService', () => {
   let service: AnuncioService;
   let repository: jest.Mocked<AnuncioRepository>;
+  let propiedadService: jest.Mocked<PropiedadService>;
   let cacheService: jest.Mocked<CacheService>;
 
   beforeEach(() => {
     repository = new AnuncioRepository() as jest.Mocked<AnuncioRepository>;
+    propiedadService = {
+      findById: jest.fn().mockResolvedValue({ status: 'disponible' })
+    } as any;
     cacheService = {
       getOrSet: jest.fn(),
       invalidateEntity: jest.fn(),
       generateKey: jest.fn()
     } as any;
-    service = new AnuncioService(repository, cacheService);
+    service = new AnuncioService(repository, propiedadService, cacheService);
     jest.clearAllMocks();
   });
 
@@ -34,6 +40,7 @@ describe('AnuncioService', () => {
       };
       const createdAnuncio = { ...anuncioData, id: 'anuncio-1' };
 
+      repository.findByPropertyId.mockResolvedValue([]);
       repository.create.mockResolvedValue(createdAnuncio as any);
       cacheService.invalidateEntity.mockResolvedValue();
 

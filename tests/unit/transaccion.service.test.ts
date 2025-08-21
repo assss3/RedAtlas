@@ -22,7 +22,7 @@ describe('TransaccionService', () => {
 
   beforeEach(() => {
     repository = new TransaccionRepository() as jest.Mocked<TransaccionRepository>;
-    anuncioService = new AnuncioService({} as any) as jest.Mocked<AnuncioService>;
+    anuncioService = new AnuncioService({} as any, {} as any) as jest.Mocked<AnuncioService>;
     propiedadService = new PropiedadService({} as any) as jest.Mocked<PropiedadService>;
     cacheService = {
       getOrSet: jest.fn(),
@@ -42,9 +42,10 @@ describe('TransaccionService', () => {
         userId: 'user-1'
       };
       const createdTransaccion = { ...transaccionData, id: 'trans-1', status: TransactionStatus.PENDIENTE };
-      const anuncio = { id: 'anuncio-1', propertyId: 'prop-1', tenantId: 'tenant-1' };
+      const anuncio = { id: 'anuncio-1', propertyId: 'prop-1', tenantId: 'tenant-1', status: 'activo' };
 
       repository.create.mockResolvedValue(createdTransaccion as any);
+      repository.findPendingByAnuncioId.mockResolvedValue([]);
       anuncioService.findById.mockResolvedValue(anuncio as any);
       anuncioService.updateStatusByPropertyId.mockResolvedValue();
       propiedadService.updateStatus.mockResolvedValue();
@@ -65,7 +66,7 @@ describe('TransaccionService', () => {
 
   describe('cancel', () => {
     it('should cancel transaccion and restore property availability', async () => {
-      const transaccion = { id: 'trans-1', anuncioId: 'anuncio-1', tenantId: 'tenant-1' };
+      const transaccion = { id: 'trans-1', anuncioId: 'anuncio-1', tenantId: 'tenant-1', status: 'pendiente' };
       const anuncio = { id: 'anuncio-1', propertyId: 'prop-1', tenantId: 'tenant-1' };
       const updatedTransaccion = { ...transaccion, status: TransactionStatus.CANCELADA };
 
@@ -90,7 +91,7 @@ describe('TransaccionService', () => {
 
   describe('complete', () => {
     it('should complete transaccion and set anuncios to inactive', async () => {
-      const transaccion = { id: 'trans-1', anuncioId: 'anuncio-1', tenantId: 'tenant-1' };
+      const transaccion = { id: 'trans-1', anuncioId: 'anuncio-1', tenantId: 'tenant-1', status: 'pendiente' };
       const anuncio = { id: 'anuncio-1', propertyId: 'prop-1', tenantId: 'tenant-1' };
       const updatedTransaccion = { ...transaccion, status: TransactionStatus.COMPLETADA };
 

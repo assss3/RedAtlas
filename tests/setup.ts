@@ -1,13 +1,24 @@
-import 'reflect-metadata';
+// Mock Redis para evitar conexiones reales en tests
+jest.mock('../src/config/redis', () => ({
+  __esModule: true,
+  default: {
+    set: jest.fn().mockResolvedValue('OK'),
+    get: jest.fn().mockResolvedValue(null),
+    del: jest.fn().mockResolvedValue(1),
+    keys: jest.fn().mockResolvedValue([]),
+    setex: jest.fn().mockResolvedValue('OK'),
+    eval: jest.fn().mockResolvedValue(1),
+    quit: jest.fn().mockResolvedValue('OK')
+  }
+}));
 
-// Mock environment variables
-process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-secret';
-process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
-process.env.DB_HOST = 'localhost';
-process.env.DB_PORT = '5432';
-process.env.DB_USERNAME = 'test';
-process.env.DB_PASSWORD = 'test';
-process.env.DB_NAME = 'test_db';
-process.env.REDIS_HOST = 'localhost';
-process.env.REDIS_PORT = '6379';
+// Mock LockService para evitar conexiones Redis
+jest.mock('../src/shared/services/lock.service', () => ({
+  LockService: {
+    getInstance: jest.fn(() => ({
+      withLock: jest.fn((key, ttl, operation) => operation()),
+      acquireLock: jest.fn().mockResolvedValue('lock-value'),
+      releaseLock: jest.fn().mockResolvedValue(true)
+    }))
+  }
+}));
