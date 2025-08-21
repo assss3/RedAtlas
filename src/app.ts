@@ -2,6 +2,10 @@ import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import swaggerUi from 'swagger-ui-express';
+import * as fs from 'fs';
+import * as yaml from 'js-yaml';
+import * as path from 'path';
 import { errorHandler } from './config/error.middleware';
 import { authenticateToken } from './config/auth.middleware';
 import { usuarioRoutes } from './modules/usuario/usuario.routes';
@@ -17,6 +21,18 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Swagger UI (sin autenticación)
+try {
+  const swaggerPath = path.join(__dirname, '../docs/swagger.yaml');
+  const swaggerDocument = yaml.load(fs.readFileSync(swaggerPath, 'utf8')) as object;
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Red Atlas Express API Documentation'
+  }));
+} catch (error) {
+  console.warn('⚠️ Could not load Swagger documentation:', error);
+}
 
 // Rutas públicas (sin autenticación)
 app.use('/api/auth', authRoutes);

@@ -132,22 +132,6 @@ transactions_search:tenant-123:_status_pendiente_userId_user-789_
 - **TTL apropiado**: Basado en frecuencia de cambios
 - **Claves determinísticas**: Mismos filtros = misma clave
 
-## 🛠️ Monitoreo y Debug
-
-### Comandos Redis útiles
-```bash
-# Ver todas las claves
-redis-cli KEYS "*"
-
-# Ver claves de un tenant
-redis-cli KEYS "properties:tenant-123*"
-
-# Ver contenido de una clave
-redis-cli GET "property:tenant-123:prop-456"
-
-# Limpiar cache de un tenant
-redis-cli DEL $(redis-cli KEYS "properties:tenant-123*")
-```
 
 ### Logs de cache
 ```
