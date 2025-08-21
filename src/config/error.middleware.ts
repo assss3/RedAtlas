@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiError, ErrorTypes } from '../core/errors';
+import { config } from './env';
 
 export const errorHandler = (
   error: Error,
@@ -37,7 +38,7 @@ export const errorHandler = (
     500,
     ErrorTypes.INTERNAL_ERROR,
     'Internal server error',
-    process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
+    config.nodeEnv === 'development' ? error.message : 'Something went wrong',
     req.originalUrl
   );
 

@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthenticatedRequest } from '../core/interfaces';
 import { ApiError, ErrorTypes } from '../core/errors';
+import { config } from './env';
 
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.header('Authorization');
@@ -18,7 +19,7 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+    const decoded = jwt.verify(token, config.jwt.secret) as any;
     req.userId = decoded.userId;
     req.tenantId = decoded.tenantId;
     req.userRole = decoded.role;

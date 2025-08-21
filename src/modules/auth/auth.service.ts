@@ -4,6 +4,7 @@ import { AppDataSource } from '../../config/database';
 import { Usuario } from '../usuario/usuario.entity';
 import { RefreshToken } from './refresh-token.entity';
 import { UserRole } from '../usuario/usuario.interfaces';
+import { config } from '../../config/env';
 
 export class AuthService {
   private userRepo = AppDataSource.getRepository(Usuario);
@@ -12,14 +13,14 @@ export class AuthService {
   generateTokens(userId: string, tenantId: string, role: UserRole) {
     const accessToken = jwt.sign(
       { userId, tenantId, role },
-      process.env.JWT_SECRET as string,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' } as SignOptions
+      config.jwt.secret,
+      { expiresIn: config.jwt.expiresIn } as SignOptions
     );
 
     const refreshToken = jwt.sign(
       { userId, tenantId },
-      process.env.REFRESH_TOKEN_SECRET as string,
-      { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d' } as SignOptions
+      config.jwt.refreshSecret,
+      { expiresIn: config.jwt.refreshExpiresIn } as SignOptions
     );
 
     return { accessToken, refreshToken };
@@ -50,7 +51,7 @@ export class AuthService {
 
   async refreshToken(refreshToken: string) {
     try {
-      const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET as string) as any;
+      const decoded = jwt.verify(refreshToken, config.jwt.refreshSecret) as any;
       
       const storedToken = await this.refreshTokenRepo.findOne({
         where: { token: refreshToken, userId: decoded.userId },

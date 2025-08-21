@@ -1,12 +1,11 @@
 import 'reflect-metadata';
-import { config } from 'dotenv';
-config();
 import { Client } from 'pg';
 import { v5 as uuidv5 } from 'uuid';
 import bcrypt from 'bcryptjs';
+import { config } from '../config/env';
 
 // Configuración
-const BATCH_SIZE = parseInt(process.env.SEED_BATCH_SIZE || '5000');
+const BATCH_SIZE = config.seed.batchSize;
 const SEED_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 const RNG_SEED = 42; // Seed fija para reproducibilidad
 
@@ -122,11 +121,11 @@ function generatePrice(basePrice: number, tipo: string, operationType: string): 
 
 async function seed() {
   const client = new Client({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    user: process.env.DB_USERNAME || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_NAME || 'red_atlas_db',
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.username,
+    password: config.db.password,
+    database: config.db.database,
   });
 
   try {

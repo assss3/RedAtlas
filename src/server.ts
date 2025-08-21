@@ -1,9 +1,12 @@
-import { config } from './config/env';
+import { config, validateConfig } from './config/env';
 import { AppDataSource } from './config/database';
 import { app } from './app';
 
 async function startServer() {
   try {
+    // Validate environment configuration
+    validateConfig();
+    
     // Inicializar conexión a la base de datos
     await AppDataSource.initialize();
     console.log('✅ Database connection established');

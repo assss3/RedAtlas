@@ -2,24 +2,97 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Validation function to ensure required environment variables are set
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Environment variable ${name} is required but not set`);
+  }
+  return value;
+}
+
+function requireEnvInt(name: string): number {
+  const value = requireEnv(name);
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) {
+    throw new Error(`Environment variable ${name} must be a valid integer, got: ${value}`);
+  }
+  return parsed;
+}
+
+function getEnv(name: string): string | undefined {
+  return process.env[name];
+}
+
+function getEnvInt(name: string): number | undefined {
+  const value = getEnv(name);
+  if (!value) return undefined;
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) {
+    throw new Error(`Environment variable ${name} must be a valid integer, got: ${value}`);
+  }
+  return parsed;
+}
+
 export const config = {
-  port: parseInt(process.env.PORT || '3000'),
-  nodeEnv: process.env.NODE_ENV || 'development',
+  // Server Configuration
+  port: requireEnvInt('PORT'),
+  nodeEnv: requireEnv('NODE_ENV'),
+
+  // JWT Configuration
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-secret-key',
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    secret: requireEnv('JWT_SECRET'),
+    expiresIn: requireEnv('JWT_EXPIRES_IN'),
+    refreshSecret: requireEnv('REFRESH_TOKEN_SECRET'),
+    refreshExpiresIn: requireEnv('REFRESH_TOKEN_EXPIRES_IN'),
   },
+
+  // Database Configuration
   db: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    username: process.env.DB_USERNAME || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_NAME || 'red_atlas_db',
+    host: requireEnv('DB_HOST'),
+    port: requireEnvInt('DB_PORT'),
+    username: requireEnv('DB_USERNAME'),
+    password: requireEnv('DB_PASSWORD'),
+    database: requireEnv('DB_NAME'),
   },
+
+  // Redis Configuration
   redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6381'),
-    password: process.env.REDIS_PASSWORD,
-    db: parseInt(process.env.REDIS_DB || '0'),
+    host: requireEnv('REDIS_HOST'),
+    port: requireEnvInt('REDIS_PORT'),
+    password: getEnv('REDIS_PASSWORD'), // Optional
+    db: requireEnvInt('REDIS_DB'),
+  },
+
+  // Seed Configuration
+  seed: {
+    batchSize: requireEnvInt('SEED_BATCH_SIZE'),
   },
 };
+
+// Validate configuration on startup
+export function validateConfig(): void {
+  try {
+    // Test all required configurations
+    config.port;
+    config.nodeEnv;
+    config.jwt.secret;
+    config.jwt.expiresIn;
+    config.jwt.refreshSecret;
+    config.jwt.refreshExpiresIn;
+    config.db.host;
+    config.db.port;
+    config.db.username;
+    config.db.password;
+    config.db.database;
+    config.redis.host;
+    config.redis.port;
+    config.redis.db;
+    config.seed.batchSize;
+
+    console.log('✅ Environment configuration validated successfully');
+  } catch (error) {
+    console.error('❌ Environment configuration validation failed:', error);
+    process.exit(1);
+  }
+}
