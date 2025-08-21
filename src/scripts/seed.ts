@@ -132,11 +132,19 @@ async function seed() {
     await client.connect();
     console.log('🔗 Database connected');
 
-    // Verificar si ya existe data
-    const { rows: existingData } = await client.query('SELECT COUNT(*) as count FROM propiedades');
-    if (parseInt(existingData[0].count) > 0) {
-      console.log('⚠️  Data already exists. Skipping seed...');
-      return;
+    // Verificar si las tablas existen
+    try {
+      const { rows: existingData } = await client.query('SELECT COUNT(*) as count FROM propiedades');
+      if (parseInt(existingData[0].count) > 0) {
+        console.log('⚠️  Data already exists. Skipping seed...');
+        return;
+      }
+    } catch (error: any) {
+      if (error.code === '42P01') {
+        console.log('❌ Tables do not exist. Please run migrations first: npm run migration:run');
+        return;
+      }
+      throw error;
     }
 
     // Habilitar extensiones
@@ -150,14 +158,14 @@ async function seed() {
     // 2. Crear usuarios
     await seedUsuarios(client);
     
-    // 3. Crear propiedades (100k total, 50k por tenant)
-    const propiedades = await seedPropiedades(client, 100000);
+    // 3. Crear propiedades (100k total, 50k per tenant)
+    const bloques = await seedPropiedades(client, 100000);
     
-    // 4. Crear anuncios (200k total, 100k por tenant)
-    const anuncios = await seedAnuncios(client, propiedades, 200000);
+    // 4. Crear anuncios (200k total, 100k per tenant)
+    const anunciosData = await seedAnuncios(client, bloques, 200000);
     
-    // 5. Crear transacciones (150k total, 75k por tenant)
-    await seedTransacciones(client, anuncios, 150000);
+    // 5. Crear transacciones (150k total, 75k per tenant)
+    await seedTransacciones(client, anunciosData, 150000);
 
     console.log('✅ Seed completed successfully');
     
@@ -200,23 +208,32 @@ async function seedUsuarios(client: Client) {
   ]);
 }
 
-async function seedPropiedades(client: Client, total: number): Promise<any[]> {
-  console.log(`🏠 Creating ${total} propiedades...`);
-  
-  const propiedades: any[] = [];
+// Generar bloques estructurados de datos
+function generateDataBlocks(totalPropiedades: number, totalAnuncios: number, totalTransacciones: number) {
+  const bloques: any[] = [];
   const tenantIds = Object.keys(TENANT_DATA);
-  const perTenant = total / tenantIds.length;
   
-  for (let i = 0; i < total; i++) {
-    const tenantId = tenantIds[Math.floor(i / perTenant)];
+  // Calcular cuántos bloques necesitamos (cada bloque = 1 propiedad + 2 anuncios)
+  const bloquesNecesarios = Math.ceil(totalPropiedades / 1);
+  const bloquesCompletos = Math.floor(bloquesNecesarios / 3) * 3; // Múltiplo de 3 para los 3 tipos
+  
+  let propIndex = 0;
+  let anuncioIndex = 0;
+  let transIndex = 0;
+  
+  for (let i = 0; i < bloquesCompletos; i++) {
+    const tenantId = tenantIds[Math.floor(i / (bloquesCompletos / tenantIds.length))];
     const tenantData = TENANT_DATA[tenantId];
     const ciudad = rng.choice(tenantData.ciudades);
     const tipo = rng.choice(TIPOS_PROPIEDAD);
     const coords = generateCoordinates(ciudad.bbox);
     const createdAt = generateRandomDate();
     
+    const bloqueType = i % 3; // 0, 1, 2 para los 3 tipos de bloques
+    
+    // Crear propiedad base
     const propiedad = {
-      id: generateDeterministicUUID('prop', i, tenantId),
+      id: generateDeterministicUUID('prop', propIndex++, tenantId),
       tenant_id: tenantId,
       title: `${tipo.charAt(0).toUpperCase() + tipo.slice(1)} en ${ciudad.nombre}`,
       tipo,
@@ -227,13 +244,152 @@ async function seedPropiedades(client: Client, total: number): Promise<any[]> {
       calle: rng.choice(CALLES),
       altura: rng.nextInt(100, 9999).toString(),
       location: `POINT(${coords.lng} ${coords.lat})`,
-      status: rng.nextFloat(0, 1) < 0.85 ? 'disponible' : 'no_disponible',
+      status: 'disponible', // Se actualizará según el bloque
       created_at: createdAt,
       updated_at: createdAt
     };
     
-    propiedades.push(propiedad);
+    // Crear anuncios (venta y alquiler)
+    const anuncioVenta = {
+      id: generateDeterministicUUID('anun', anuncioIndex++, tenantId),
+      tenant_id: tenantId,
+      property_id: propiedad.id,
+      description: `Venta de ${propiedad.tipo} en ${propiedad.ciudad}. Excelente ubicación.`,
+      tipo: 'venta',
+      price: generatePrice(ciudad.basePrice, propiedad.tipo, 'venta'),
+      status: 'activo', // Se actualizará según el bloque
+      created_at: createdAt,
+      updated_at: createdAt
+    };
+    
+    const anuncioAlquiler = {
+      id: generateDeterministicUUID('anun', anuncioIndex++, tenantId),
+      tenant_id: tenantId,
+      property_id: propiedad.id,
+      description: `Alquiler de ${propiedad.tipo} en ${propiedad.ciudad}. Excelente ubicación.`,
+      tipo: 'alquiler',
+      price: generatePrice(ciudad.basePrice, propiedad.tipo, 'alquiler'),
+      status: 'activo', // Se actualizará según el bloque
+      created_at: createdAt,
+      updated_at: createdAt
+    };
+    
+    const userId = tenantId === TENANTS.T1.id ? USUARIOS.T1_USER.id : USUARIOS.T2_USER.id;
+    const transacciones: any[] = [];
+    
+    // Configurar según tipo de bloque
+    if (bloqueType === 0) {
+      // Bloque 1: Propiedad no disponible con anuncios reservados
+      propiedad.status = 'no_disponible';
+      anuncioVenta.status = 'reservado';
+      anuncioAlquiler.status = 'reservado';
+      
+      // Transacción cancelada para venta
+      transacciones.push({
+        id: generateDeterministicUUID('trans', transIndex++, tenantId),
+        tenant_id: tenantId,
+        anuncio_id: anuncioVenta.id,
+        user_id: userId,
+        amount: anuncioVenta.price,
+        status: 'cancelada',
+        created_at: new Date(createdAt.getTime() + 86400000), // +1 día
+        updated_at: new Date(createdAt.getTime() + 86400000)
+      });
+      
+      // Transacción pendiente para alquiler
+      transacciones.push({
+        id: generateDeterministicUUID('trans', transIndex++, tenantId),
+        tenant_id: tenantId,
+        anuncio_id: anuncioAlquiler.id,
+        user_id: userId,
+        amount: anuncioAlquiler.price,
+        status: 'pendiente',
+        created_at: new Date(createdAt.getTime() + 172800000), // +2 días
+        updated_at: new Date(createdAt.getTime() + 172800000)
+      });
+      
+    } else if (bloqueType === 1) {
+      // Bloque 2: Propiedad disponible con anuncios activos (sin transacciones)
+      propiedad.status = 'disponible';
+      anuncioVenta.status = 'activo';
+      anuncioAlquiler.status = 'activo';
+      // No transacciones
+      
+    } else {
+      // Bloque 3: Propiedad no disponible con anuncios inactivos
+      propiedad.status = 'no_disponible';
+      anuncioVenta.status = 'inactivo';
+      anuncioAlquiler.status = 'inactivo';
+      
+      // Transacción cancelada primero
+      transacciones.push({
+        id: generateDeterministicUUID('trans', transIndex++, tenantId),
+        tenant_id: tenantId,
+        anuncio_id: anuncioVenta.id,
+        user_id: userId,
+        amount: anuncioVenta.price,
+        status: 'cancelada',
+        created_at: new Date(createdAt.getTime() + 86400000), // +1 día
+        updated_at: new Date(createdAt.getTime() + 86400000)
+      });
+      
+      // Transacción completada después
+      transacciones.push({
+        id: generateDeterministicUUID('trans', transIndex++, tenantId),
+        tenant_id: tenantId,
+        anuncio_id: anuncioAlquiler.id,
+        user_id: userId,
+        amount: anuncioAlquiler.price,
+        status: 'completada',
+        created_at: new Date(createdAt.getTime() + 172800000), // +2 días
+        updated_at: new Date(createdAt.getTime() + 172800000)
+      });
+    }
+    
+    bloques.push({
+      propiedad,
+      anuncios: [anuncioVenta, anuncioAlquiler],
+      transacciones
+    });
   }
+  
+  // Completar con datos aleatorios si necesitamos más registros
+  while (propIndex < totalPropiedades) {
+    const tenantId = rng.choice(tenantIds);
+    const tenantData = TENANT_DATA[tenantId];
+    const ciudad = rng.choice(tenantData.ciudades);
+    const tipo = rng.choice(TIPOS_PROPIEDAD);
+    const coords = generateCoordinates(ciudad.bbox);
+    const createdAt = generateRandomDate();
+    
+    const propiedad = {
+      id: generateDeterministicUUID('prop', propIndex++, tenantId),
+      tenant_id: tenantId,
+      title: `${tipo.charAt(0).toUpperCase() + tipo.slice(1)} en ${ciudad.nombre}`,
+      tipo,
+      ambientes: ['casa', 'departamento'].includes(tipo) ? rng.nextInt(1, 5) : null,
+      superficie: rng.nextFloat(30, 300),
+      pais: tenantData.pais,
+      ciudad: ciudad.nombre,
+      calle: rng.choice(CALLES),
+      altura: rng.nextInt(100, 9999).toString(),
+      location: `POINT(${coords.lng} ${coords.lat})`,
+      status: rng.nextFloat(0, 1) < 0.7 ? 'disponible' : 'no_disponible',
+      created_at: createdAt,
+      updated_at: createdAt
+    };
+    
+    bloques.push({ propiedad, anuncios: [], transacciones: [] });
+  }
+  
+  return bloques;
+}
+
+async function seedPropiedades(client: Client, total: number): Promise<any[]> {
+  console.log(`🏠 Creating ${total} propiedades...`);
+  
+  const bloques = generateDataBlocks(total, total * 2, total * 1.5);
+  const propiedades = bloques.map(b => b.propiedad);
   
   // Inserción por lotes
   for (let i = 0; i < propiedades.length; i += BATCH_SIZE) {
@@ -260,38 +416,35 @@ async function seedPropiedades(client: Client, total: number): Promise<any[]> {
     }
   }
   
-  return propiedades;
+  return bloques;
 }
 
-async function seedAnuncios(client: Client, propiedades: any[], total: number): Promise<any[]> {
+async function seedAnuncios(client: Client, bloques: any[], total: number): Promise<any> {
   console.log(`📢 Creating ${total} anuncios...`);
   
-  const anuncios: any[] = [];
+  const anuncios = bloques.flatMap(b => b.anuncios);
   
-  for (let i = 0; i < total; i++) {
-    const propiedad = propiedades[i % propiedades.length];
+  // Completar con anuncios aleatorios solo en propiedades disponibles
+  const propiedadesDisponibles = bloques.filter(b => b.propiedad.status === 'disponible');
+  while (anuncios.length < total && propiedadesDisponibles.length > 0) {
+    const bloque = rng.choice(propiedadesDisponibles);
+    const propiedad = bloque.propiedad;
     const tenantData = TENANT_DATA[propiedad.tenant_id];
     const ciudad = tenantData.ciudades.find(c => c.nombre === propiedad.ciudad)!;
     const tipo = rng.choice(TIPOS_ANUNCIO);
     const price = generatePrice(ciudad.basePrice, propiedad.tipo, tipo);
-    const createdAt = new Date(Math.max(propiedad.created_at.getTime(), generateRandomDate().getTime()));
     
-    // Validación
-    if (price < 0) continue;
-    
-    const anuncio = {
-      id: generateDeterministicUUID('anun', i, propiedad.tenant_id),
+    anuncios.push({
+      id: generateDeterministicUUID('anun', anuncios.length, propiedad.tenant_id),
       tenant_id: propiedad.tenant_id,
       property_id: propiedad.id,
       description: `${tipo.charAt(0).toUpperCase() + tipo.slice(1)} de ${propiedad.tipo} en ${propiedad.ciudad}. Excelente ubicación.`,
       tipo,
       price,
-      status: rng.nextFloat(0, 1) < 0.8 ? 'activo' : (rng.nextFloat(0, 1) < 0.5 ? 'inactivo' : 'reservado'),
-      created_at: createdAt,
-      updated_at: createdAt
-    };
-    
-    anuncios.push(anuncio);
+      status: 'activo',
+      created_at: propiedad.created_at,
+      updated_at: propiedad.created_at
+    });
   }
   
   // Inserción por lotes
@@ -318,54 +471,43 @@ async function seedAnuncios(client: Client, propiedades: any[], total: number): 
     }
   }
   
-  return anuncios;
+  return { bloques, anuncios };
 }
 
-async function seedTransacciones(client: Client, anuncios: any[], total: number) {
+async function seedTransacciones(client: Client, data: any, total: number) {
   console.log(`💰 Creating ${total} transacciones...`);
   
-  const transacciones: any[] = [];
+  const { bloques, anuncios } = data;
+  const transacciones = bloques.flatMap((b: any) => b.transacciones);
   
-  for (let i = 0; i < total; i++) {
-    const anuncio = anuncios[i % anuncios.length];
+  // Completar con transacciones aleatorias si necesitamos más
+  while (transacciones.length < total) {
+    const anuncio: any = rng.choice(anuncios);
     const userId = anuncio.tenant_id === TENANTS.T1.id ? USUARIOS.T1_USER.id : USUARIOS.T2_USER.id;
-    const amount = anuncio.price;
-    const createdAt = new Date(Math.max(anuncio.created_at.getTime(), generateRandomDate().getTime()));
+    const status = rng.choice(STATUS_TRANSACCION);
     
-    // Validación
-    if (amount < 0) continue;
-    
-    // Distribución realista de estados: 60% pendiente, 30% completada, 10% cancelada
-    let status: string;
-    const rand = rng.nextFloat(0, 1);
-    if (rand < 0.6) status = 'pendiente';
-    else if (rand < 0.9) status = 'completada';
-    else status = 'cancelada';
-    
-    const transaccion = {
-      id: generateDeterministicUUID('trans', i, anuncio.tenant_id),
+    transacciones.push({
+      id: generateDeterministicUUID('trans', transacciones.length, anuncio.tenant_id),
       tenant_id: anuncio.tenant_id,
       anuncio_id: anuncio.id,
       user_id: userId,
-      amount,
+      amount: anuncio.price,
       status,
-      created_at: createdAt,
-      updated_at: createdAt
-    };
-    
-    transacciones.push(transaccion);
+      created_at: new Date(anuncio.created_at.getTime() + rng.nextInt(0, 86400000)),
+      updated_at: new Date(anuncio.created_at.getTime() + rng.nextInt(0, 86400000))
+    });
   }
   
   // Inserción por lotes
   for (let i = 0; i < transacciones.length; i += BATCH_SIZE) {
     const batch = transacciones.slice(i, i + BATCH_SIZE);
     
-    const values = batch.map((t, idx) => {
+    const values = batch.map((t: any, idx: number) => {
       const base = idx * 7;
       return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`;
     }).join(', ');
     
-    const params = batch.flatMap(t => [
+    const params = batch.flatMap((t: any) => [
       t.id, t.tenant_id, t.anuncio_id, t.user_id, t.amount, t.status, t.created_at
     ]);
     
@@ -379,6 +521,8 @@ async function seedTransacciones(client: Client, anuncios: any[], total: number)
       console.log(`  📦 Transacciones: ${Math.min(i + BATCH_SIZE, transacciones.length)}/${transacciones.length}`);
     }
   }
+  
+  console.log('✅ Datos estructurados en bloques creados correctamente');
 }
 
 if (require.main === module) {
